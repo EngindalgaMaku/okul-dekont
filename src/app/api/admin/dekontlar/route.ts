@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { headers } from 'next/headers'
 
 // Dekontları listele
 export async function GET() {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('dekontlar')
       .select(`
         *,
@@ -41,7 +41,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('dekontlar')
       .insert(body)
       .select()
@@ -65,7 +65,7 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { id, ...updateData } = body
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('dekontlar')
       .update(updateData)
       .eq('id', id)
@@ -97,7 +97,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('dekontlar')
       .delete()
       .eq('id', id)

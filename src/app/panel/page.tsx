@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2, Users, FileText, LogOut, User, Bell, Upload } from 'lucide-react'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
 
 interface Isletme {
@@ -56,7 +56,7 @@ export default function PanelPage() {
     const storedIsletme = JSON.parse(localStorage.getItem('isletme') || '{}')
 
     // Stajyerleri getir
-    const { data: stajData } = await supabaseAdmin
+    const { data: stajData } = await supabase
       .from('stajlar')
       .select(`
         id,
@@ -88,7 +88,7 @@ export default function PanelPage() {
     }
 
     // Dekontları getir
-    const { data: dekontData } = await supabaseAdmin
+    const { data: dekontData } = await supabase
       .from('dekontlar')
       .select(`
         id,
