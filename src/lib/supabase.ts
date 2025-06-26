@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://guqwqbxsfvddwwczwljp.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1cXdxYnhzZnZkZHd3Y3p3bGpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2ODk0NjAsImV4cCI6MjA2NjI2NTQ2MH0.qYnZZkrOxgBgL6Jh9qGgCNCpQOs'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // Tüm işlemler için standart, güvenli client'ı kullan
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
@@ -34,27 +34,33 @@ export type Database = {
           id: number
           ad: string
           soyad: string
-          email: string
+          email: string | null
           telefon: string | null
-          alan_id: number
+          alan_id: number | null
+          aktif: boolean
+          pin: string
           created_at: string
         }
         Insert: {
           id?: number
           ad: string
           soyad: string
-          email: string
+          email?: string | null
           telefon?: string | null
-          alan_id: number
+          alan_id?: number | null
+          aktif?: boolean
+          pin: string
           created_at?: string
         }
         Update: {
           id?: number
           ad?: string
           soyad?: string
-          email?: string
+          email?: string | null
           telefon?: string | null
-          alan_id?: number
+          alan_id?: number | null
+          aktif?: boolean
+          pin?: string
           created_at?: string
         }
       }

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
+import { ChevronDownIcon, MagnifyingGlassIcon, BuildingOfficeIcon, AcademicCapIcon } from '@heroicons/react/24/outline'
 
 interface Isletme {
     id: number
@@ -19,51 +19,96 @@ interface Ogretmen {
     pin: string
 }
 
+// Debounce hook
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
 export default function LoginPage() {
   const router = useRouter()
-  const { setOkulAdi, setEgitimYili } = useEgitimYili()
   const [loginType, setLoginType] = useState<'isletme' | 'ogretmen'>('isletme')
-  
-  const [isletmeler, setIsletmeler] = useState<Isletme[]>([])
-  const [ogretmenler, setOgretmenler] = useState<Ogretmen[]>([])
   
   const [selectedIsletme, setSelectedIsletme] = useState<Isletme | null>(null)
   const [selectedOgretmen, setSelectedOgretmen] = useState<Ogretmen | null>(null)
   
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [searchResults, setSearchResults] = useState<(Isletme | Ogretmen)[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState('')
-  const [step, setStep] = useState(1) // 1: Seçim, 2: PIN Girişi
+  const [step, setStep] = useState(1)
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-        // İşletmeleri yükle
-        const { data: isletmeData, error: isletmeError } = await supabase
-            .from('isletmeler')
-            .select('id, ad, yetkili_kisi, pin')
-            .order('ad');
-        if (isletmeData) setIsletmeler(isletmeData);
+  // Debounced search term - 300ms bekle
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-        // Öğretmenleri yükle
-        const { data: ogretmenData, error: ogretmenError } = await supabase
-            .from('ogretmenler')
-            .select('id, ad, soyad, pin')
-            .order('ad');
-        if (ogretmenData) setOgretmenler(ogretmenData);
-
-        // Aktif eğitim yılını yükle
-        const { data: egitimYiliData, error: egitimYiliError } = await supabase
-            .from('egitim_yillari')
-            .select('*')
-            .eq('aktif', true)
-            .single();
-        
-        if(egitimYiliData) {
-            setOkulAdi('Hüsniye Özdilek MTAL'); // Bu bilgi de DB'den gelebilir
-            setEgitimYili(egitimYiliData.yil);
-        }
+  // Backend'te arama yap
+  const searchInDatabase = useCallback(async (term: string) => {
+    if (term.length < 2) {
+      setSearchResults([])
+      return
     }
-    fetchInitialData();
-  }, [setEgitimYili, setOkulAdi]);
+
+    setIsSearching(true)
+
+    try {
+      if (loginType === 'isletme') {
+        const { data, error } = await supabase
+          .from('isletmeler')
+          .select('id, ad, yetkili_kisi, pin')
+          .ilike('ad', `%${term}%`)
+          .limit(10)
+          .order('ad')
+
+        if (data && !error) {
+          setSearchResults(data)
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('ogretmenler')
+          .select('id, ad, soyad, pin')
+          .or(`ad.ilike.%${term}%,soyad.ilike.%${term}%`)
+          .limit(10)
+          .order('ad')
+
+        if (data && !error) {
+          setSearchResults(data)
+        }
+      }
+    } catch (error) {
+      console.error('Arama hatası:', error)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }, [loginType])
+
+  // Debounced search term değiştiğinde arama yap
+  useEffect(() => {
+    if (debouncedSearchTerm) {
+      searchInDatabase(debouncedSearchTerm)
+    } else {
+      setSearchResults([])
+    }
+  }, [debouncedSearchTerm, searchInDatabase])
+
+  // Login type değiştiğinde temizle
+  useEffect(() => {
+    resetSelection()
+  }, [loginType])
 
   const handleSelectAndProceed = () => {
     if (loginType === 'isletme' && !selectedIsletme) {
@@ -101,109 +146,231 @@ export default function LoginPage() {
     }
   }
 
-  const renderIsletmeLogin = () => (
-    <>
-      <h2 className="text-xl font-semibold text-center text-gray-800">İşletme Girişi</h2>
-      {isletmeler.length > 0 ? (
-        <select
-          value={selectedIsletme?.id || ''}
-          onChange={(e) => {
-            const isletme = isletmeler.find(i => i.id === parseInt(e.target.value));
-            setSelectedIsletme(isletme || null);
-          }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
-        >
-          <option value="" disabled>İşletme Seçiniz</option>
-          {isletmeler.map((isletme) => (
-            <option key={isletme.id} value={isletme.id}>{isletme.ad}</option>
-          ))}
-        </select>
-      ) : <p>İşletmeler yükleniyor...</p>}
-    </>
-  );
+  const handleItemSelect = (item: Isletme | Ogretmen) => {
+    if (loginType === 'isletme') {
+      setSelectedIsletme(item as Isletme)
+      setSearchTerm((item as Isletme).ad)
+    } else {
+      setSelectedOgretmen(item as Ogretmen)
+      setSearchTerm(`${(item as Ogretmen).ad} ${(item as Ogretmen).soyad}`)
+    }
+    setIsDropdownOpen(false)
+    setSearchResults([])
+  }
 
-  const renderOgretmenLogin = () => (
-    <>
-        <h2 className="text-xl font-semibold text-center text-gray-800">Öğretmen Girişi</h2>
-        {ogretmenler.length > 0 ? (
-            <select
-            value={selectedOgretmen?.id || ''}
+  const resetSelection = () => {
+    setSelectedIsletme(null)
+    setSelectedOgretmen(null)
+    setSearchTerm('')
+    setIsDropdownOpen(false)
+    setSearchResults([])
+  }
+
+  const renderSmartAutoComplete = () => {
+    const placeholder = loginType === 'isletme' 
+      ? 'İşletme adı yazın (min. 2 karakter)...' 
+      : 'Öğretmen adı yazın (min. 2 karakter)...'
+    
+    const selected = loginType === 'isletme' ? selectedIsletme : selectedOgretmen
+    const showResults = isDropdownOpen && (searchResults.length > 0 || isSearching || (searchTerm.length >= 2 && searchResults.length === 0))
+    
+    return (
+      <div className="relative">
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
             onChange={(e) => {
-                const ogretmen = ogretmenler.find(o => o.id === parseInt(e.target.value));
-                setSelectedOgretmen(ogretmen || null);
+              setSearchTerm(e.target.value)
+              setIsDropdownOpen(true)
+              if (e.target.value === '') {
+                resetSelection()
+              }
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
-            >
-            <option value="" disabled>Öğretmen Seçiniz</option>
-            {ogretmenler.map((ogretmen) => (
-                <option key={ogretmen.id} value={ogretmen.id}>{ogretmen.ad} {ogretmen.soyad}</option>
-            ))}
-            </select>
-        ) : <p>Öğretmenler yükleniyor...</p>}
-    </>
-  );
-
+            onFocus={() => {
+              setIsDropdownOpen(true)
+              if (searchTerm.length >= 2) {
+                searchInDatabase(searchTerm)
+              }
+            }}
+            onBlur={() => {
+              // Timeout ile kapat ki item seçimi çalışsın
+              setTimeout(() => setIsDropdownOpen(false), 150)
+            }}
+            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+            placeholder={placeholder}
+          />
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
+            {isSearching && (
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-500 border-t-transparent mr-2"></div>
+            )}
+            <ChevronDownIcon 
+              className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
+            />
+          </div>
+        </div>
+        
+        {showResults && (
+          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+            {isSearching ? (
+              <div className="px-4 py-3 text-gray-500 text-center">
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-500 border-t-transparent mr-2"></div>
+                  Aranıyor...
+                </div>
+              </div>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((item) => {
+                const displayName = loginType === 'isletme' 
+                  ? (item as Isletme).ad 
+                  : `${(item as Ogretmen).ad} ${(item as Ogretmen).soyad}`
+                
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleItemSelect(item)}
+                    className="px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+                  >
+                    <div className="flex items-center">
+                      {loginType === 'isletme' ? (
+                        <BuildingOfficeIcon className="h-5 w-5 text-indigo-500 mr-3" />
+                      ) : (
+                        <AcademicCapIcon className="h-5 w-5 text-indigo-500 mr-3" />
+                      )}
+                      <div>
+                        <div className="font-medium text-gray-900">{displayName}</div>
+                        {loginType === 'isletme' && (
+                          <div className="text-sm text-gray-500">Yetkili: {(item as Isletme).yetkili_kisi}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            ) : searchTerm.length >= 2 ? (
+              <div className="px-4 py-3 text-gray-500 text-center">
+                <div className="flex flex-col items-center">
+                  <MagnifyingGlassIcon className="h-8 w-8 text-gray-300 mb-2" />
+                  <span>"{searchTerm}" için sonuç bulunamadı</span>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 py-3 text-gray-400 text-center text-sm">
+                Arama yapmak için en az 2 karakter yazın
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const renderPinInput = () => (
-    <form onSubmit={handlePinSubmit} className="space-y-4">
-        <h2 className="text-xl font-semibold text-center text-gray-800">PIN Girişi</h2>
-        <p className="text-center text-gray-600">
-            {loginType === 'isletme' ? selectedIsletme?.ad : `${selectedOgretmen?.ad} ${selectedOgretmen?.soyad}`}
-        </p>
+    <form onSubmit={handlePinSubmit} className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-800">PIN Girişi</h2>
+          <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+            <p className="text-gray-700 font-medium">
+              {loginType === 'isletme' ? selectedIsletme?.ad : `${selectedOgretmen?.ad} ${selectedOgretmen?.soyad}`}
+            </p>
+          </div>
+        </div>
+        
         <input
             type="password"
             value={pinInput}
             onChange={(e) => setPinInput(e.target.value)}
-            className="w-full px-3 py-2 text-center border border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="PIN Kodunuzu Girin"
+            className="w-full px-4 py-3 text-center text-lg tracking-widest border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+            placeholder="• • • •"
             maxLength={4}
         />
-        {pinError && <p className="text-sm text-red-600 text-center">{pinError}</p>}
-        <div className="flex justify-between">
-            <button type="button" onClick={() => { setStep(1); setPinInput(''); setPinError(''); }} className="text-sm text-gray-600 hover:underline">Geri</button>
-            <button type="submit" className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700">Giriş Yap</button>
+        
+        {pinError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600 text-center">{pinError}</p>
+          </div>
+        )}
+        
+        <div className="flex justify-between items-center">
+            <button 
+              type="button" 
+              onClick={() => { setStep(1); setPinInput(''); setPinError(''); }} 
+              className="text-sm text-gray-600 hover:text-gray-800 transition-colors duration-200"
+            >
+              ← Geri dön
+            </button>
+            <button 
+              type="submit" 
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              Giriş Yap
+            </button>
         </div>
     </form>
   )
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-lg shadow-xl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-900">Staj Takip Sistemi</h1>
-                <p className="text-gray-600">Hüsniye Özdilek MTAL</p>
+                <div className="mx-auto w-16 h-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
+                  <AcademicCapIcon className="h-8 w-8 text-white" />
+                </div>
+                <h1 className="text-2xl font-bold text-gray-900">Staj Takip Sistemi</h1>
+                <p className="text-gray-600 mt-1">Hüsniye Özdilek MTAL</p>
             </div>
             
             {step === 1 && (
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-3">
                         <button
                             onClick={() => setLoginType('isletme')}
-                            className={`px-4 py-2 rounded-md font-medium ${loginType === 'isletme' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                            className={`flex items-center justify-center px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                              loginType === 'isletme' 
+                                ? 'bg-indigo-600 text-white shadow-md' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
                         >
+                            <BuildingOfficeIcon className="h-5 w-5 mr-2" />
                             İşletme
                         </button>
                         <button
                             onClick={() => setLoginType('ogretmen')}
-                            className={`px-4 py-2 rounded-md font-medium ${loginType === 'ogretmen' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                            className={`flex items-center justify-center px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                              loginType === 'ogretmen' 
+                                ? 'bg-indigo-600 text-white shadow-md' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
                         >
+                            <AcademicCapIcon className="h-5 w-5 mr-2" />
                             Öğretmen
                         </button>
                     </div>
 
-                    {loginType === 'isletme' ? renderIsletmeLogin() : renderOgretmenLogin()}
-                    {pinError && step === 1 && <p className="text-sm text-red-600 text-center">{pinError}</p>}
+                    {renderSmartAutoComplete()}
+                    
+                    {pinError && step === 1 && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-600 text-center">{pinError}</p>
+                      </div>
+                    )}
+                    
                     <button 
                         onClick={handleSelectAndProceed}
-                        className="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700"
+                        disabled={!(selectedIsletme || selectedOgretmen)}
+                        className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                          (selectedIsletme || selectedOgretmen)
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-md hover:shadow-lg'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
                     >
-                        İlerle
+                        Devam Et →
                     </button>
                 </div>
             )}
-            
-            {step === 2 && renderPinInput()}
 
+            {step === 2 && renderPinInput()}
         </div>
     </div>
   )

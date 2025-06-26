@@ -127,33 +127,35 @@ export default function PanelPage() {
   if (!isletme) return null
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center">
-      <div className="w-[1200px] px-8 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="w-full bg-emerald-600 shadow-lg rounded-b-lg">
-          <div className="py-4 px-6">
+        <header className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 shadow-xl rounded-b-2xl">
+          <div className="py-6 px-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <Building2 className="h-8 w-8 text-white" />
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Building2 className="h-8 w-8 text-white" />
+                </div>
                 <div className="ml-4">
-                  <h1 className="text-xl font-bold text-white">
+                  <h1 className="text-2xl font-bold text-white">
                     {isletme.ad}
                   </h1>
-                  <p className="text-sm text-emerald-100">İşletme Paneli</p>
-                  <p className="text-xs text-emerald-200">{isletme.yetkili_kisi}</p>
+                  <p className="text-sm text-indigo-100 font-medium">İşletme Paneli</p>
+                  <p className="text-xs text-indigo-200">{isletme.yetkili_kisi}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6">
-                <div className="text-right">
+                <div className="text-right bg-white/10 rounded-xl px-4 py-2 backdrop-blur-sm">
                   <p className="text-sm font-medium text-white">{okulAdi}</p>
-                  <p className="text-xs text-emerald-100">{egitimYili} Eğitim-Öğretim Yılı</p>
+                  <p className="text-xs text-indigo-100">{egitimYili} Eğitim-Öğretim Yılı</p>
                 </div>
-                <button className="p-2 text-emerald-200 hover:text-white">
+                <button className="p-3 text-indigo-200 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-200">
                   <Bell className="h-6 w-6" />
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 text-emerald-100 hover:text-white"
+                  className="flex items-center gap-2 text-indigo-100 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all duration-200"
                 >
                   <LogOut className="h-5 w-5" />
                   <span className="font-medium">Çıkış Yap</span>
@@ -165,15 +167,15 @@ export default function PanelPage() {
 
         {/* Main Content */}
         <main className="py-8 flex-grow">
-          <div className="w-full max-w-5xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+          <div className="w-full bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-gray-100">
             {/* Tabs */}
-            <div className="border-b border-gray-200 mb-6">
-              <nav className="-mb-px flex gap-6">
+            <div className="border-b border-gray-200 mb-8">
+              <nav className="-mb-px flex gap-8">
                 <button
                   onClick={() => setActiveTab('stajyerler')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-all duration-200 ${
                     activeTab === 'stajyerler'
-                      ? 'border-emerald-500 text-emerald-600'
+                      ? 'border-indigo-500 text-indigo-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -184,9 +186,9 @@ export default function PanelPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('dekontlar')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-all duration-200 ${
                     activeTab === 'dekontlar'
-                      ? 'border-emerald-500 text-emerald-600'
+                      ? 'border-indigo-500 text-indigo-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -200,32 +202,40 @@ export default function PanelPage() {
 
             {/* Content */}
             {loading ? (
-              <div className="w-full text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
-                <p className="mt-4 text-gray-500">Yükleniyor...</p>
+              <div className="w-full text-center py-16">
+                <div className="relative mx-auto w-16 h-16">
+                  <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+                </div>
+                <p className="mt-4 text-gray-600 font-medium">Yükleniyor...</p>
               </div>
             ) : activeTab === 'stajyerler' ? (
               <>
-                <div className="px-4 py-5 border-b border-gray-200 sm:px-0">
-                  <h2 className="text-lg font-medium text-gray-900">Stajyer Öğrenciler</h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Toplam {stajyerler.length} aktif stajyer
+                <div className="px-4 py-6 border-b border-gray-200 sm:px-0">
+                  <h2 className="text-xl font-semibold text-gray-900">Stajyer Öğrenciler</h2>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Toplam <span className="font-semibold text-indigo-600">{stajyerler.length}</span> aktif stajyer
                   </p>
                 </div>
                 {stajyerler.length > 0 ? (
-                  <div className="divide-y divide-gray-200 -mx-6 md:-mx-8">
+                  <div className="divide-y divide-gray-100 -mx-6 md:-mx-8">
                     {stajyerler.map((stajyer) => (
-                      <div key={stajyer.id} className="px-6 md:px-8 py-4 hover:bg-gray-50">
+                      <div key={stajyer.id} className="px-6 md:px-8 py-6 hover:bg-gray-50 transition-colors duration-150">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">
-                              {stajyer.ad} {stajyer.soyad}
-                            </h3>
-                            <p className="text-sm text-gray-500">{stajyer.alan}</p>
+                          <div className="flex items-center">
+                            <div className="p-3 bg-indigo-100 rounded-xl">
+                              <User className="h-6 w-6 text-indigo-600" />
+                            </div>
+                            <div className="ml-4">
+                              <h3 className="text-base font-semibold text-gray-900">
+                                {stajyer.ad} {stajyer.soyad}
+                              </h3>
+                              <p className="text-sm text-gray-600 mt-1">{stajyer.alan}</p>
+                            </div>
                           </div>
-                          <div className="text-right text-sm text-gray-500">
-                            <p>Sınıf: {stajyer.sinif}</p>
-                            <p className="mt-1">
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900">Sınıf: {stajyer.sinif}</p>
+                            <p className="text-xs text-gray-500 mt-1">
                               {new Date(stajyer.baslangic_tarihi).toLocaleDateString('tr-TR')} -{' '}
                               {new Date(stajyer.bitis_tarihi).toLocaleDateString('tr-TR')}
                             </p>
@@ -235,58 +245,65 @@ export default function PanelPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="py-12 text-center">
-                    <Users className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Stajyer Bulunamadı</h3>
-                    <p className="mt-1 text-sm text-gray-500">Henüz aktif stajyeriniz bulunmuyor.</p>
+                  <div className="py-16 text-center">
+                    <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center">
+                      <Users className="h-10 w-10 text-gray-400" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">Stajyer Bulunamadı</h3>
+                    <p className="mt-2 text-sm text-gray-500">Henüz aktif stajyeriniz bulunmuyor.</p>
                   </div>
                 )}
               </>
             ) : (
               <>
-                <div className="px-4 py-5 border-b border-gray-200 sm:px-0">
+                <div className="px-4 py-6 border-b border-gray-200 sm:px-0">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-medium text-gray-900">Dekont Geçmişi</h2>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Toplam {dekontlar.length} dekont
+                      <h2 className="text-xl font-semibold text-gray-900">Dekont Geçmişi</h2>
+                      <p className="mt-2 text-sm text-gray-600">
+                        Toplam <span className="font-semibold text-indigo-600">{dekontlar.length}</span> dekont
                       </p>
                     </div>
                     {dekontlar.length > 0 && (
                       <button
                         onClick={() => router.push('/panel/dekont/yeni')}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                       >
-                        <Upload className="h-4 w-4 mr-2" />
+                        <Upload className="h-5 w-5 mr-2" />
                         Yeni Dekont Ekle
                       </button>
                     )}
                   </div>
                 </div>
                 {dekontlar.length > 0 ? (
-                  <div className="divide-y divide-gray-200 -mx-6 md:-mx-8">
+                  <div className="divide-y divide-gray-100 -mx-6 md:-mx-8">
                     {dekontlar.map((dekont) => (
-                      <div key={dekont.id} className="px-6 md:px-8 py-4 hover:bg-gray-50">
+                      <div key={dekont.id} className="px-6 md:px-8 py-6 hover:bg-gray-50 transition-colors duration-150">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{dekont.ogrenci_adi}</p>
-                            <p className="text-sm text-gray-600">
-                              {new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              })}
-                            </p>
+                          <div className="flex items-center">
+                            <div className="p-3 bg-purple-100 rounded-xl">
+                              <FileText className="h-6 w-6 text-purple-600" />
+                            </div>
+                            <div className="ml-4">
+                              <p className="text-base font-semibold text-gray-900">{dekont.ogrenci_adi}</p>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })}
+                              </p>
+                            </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-semibold text-gray-900">
+                            <p className="text-lg font-bold text-gray-900">
                               {dekont.miktar.toLocaleString('tr-TR', {
                                 style: 'currency',
                                 currency: 'TRY',
                               })}
                             </p>
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mt-1 ${
                                 dekont.onay_durumu === 'onaylandi'
                                   ? 'bg-green-100 text-green-800'
                                   : dekont.onay_durumu === 'reddedildi'
@@ -302,16 +319,18 @@ export default function PanelPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="py-12 text-center">
-                    <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Dekont Bulunamadı</h3>
-                    <p className="mt-1 text-sm text-gray-500">Sisteme henüz dekont yüklenmemiş.</p>
-                    <div className="mt-6">
+                  <div className="py-16 text-center">
+                    <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center">
+                      <FileText className="h-10 w-10 text-gray-400" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">Dekont Bulunamadı</h3>
+                    <p className="mt-2 text-sm text-gray-500">Sisteme henüz dekont yüklenmemiş.</p>
+                    <div className="mt-8">
                       <button
                         onClick={() => router.push('/panel/dekont/yeni')}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                       >
-                        <Upload className="h-4 w-4 mr-2" />
+                        <Upload className="h-5 w-5 mr-2" />
                         Yeni Dekont Ekle
                       </button>
                     </div>
@@ -323,8 +342,8 @@ export default function PanelPage() {
         </main>
 
         {/* Footer */}
-        <footer className="w-full bg-emerald-600 shadow-lg rounded-t-lg">
-          <div className="py-4 px-6 text-center text-sm text-emerald-100">
+        <footer className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 shadow-xl rounded-t-2xl mt-8">
+          <div className="py-4 px-6 text-center text-sm text-white">
             &copy; {new Date().getFullYear()} {okulAdi} - Staj Dekont Sistemi. Tüm Hakları Saklıdır.
           </div>
         </footer>
