@@ -506,7 +506,7 @@ export default function IsletmeYonetimiPage() {
                         <button 
                           onClick={() => handleAlanYonetimi(isletme)}
                           className="text-purple-600 hover:text-purple-900 p-2 rounded-lg hover:bg-purple-50 transition-all duration-200"
-                          title="Alan Yönetimi"
+                          title="Koordinatörlük Yönetimi"
                         >
                           <Users className="h-5 w-5" />
                         </button>
@@ -863,11 +863,11 @@ export default function IsletmeYonetimiPage() {
         </div>
       </Modal>
 
-      {/* Alan Yönetimi Modal */}
+      {/* Koordinatörlük Yönetimi Modal */}
       <Modal
         isOpen={alanModal}
         onClose={() => setAlanModal(false)}
-        title={`${selectedIsletme?.ad} - Alan Yönetimi`}
+        title={`${selectedIsletme?.ad} - Koordinatörlük Yönetimi`}
         size="xl"
       >
         <div className="space-y-6">
