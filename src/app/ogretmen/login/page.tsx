@@ -22,7 +22,7 @@ export default function OgretmenLoginPage() {
     setLoading(true)
 
     try {
-      // Öğretmen bilgilerini kontrol et
+      // Önce öğretmeni adı ve soyadı ile bul
       const { data: ogretmen, error: ogretmenError } = await supabase
         .from('ogretmenler')
         .select(`
@@ -31,6 +31,9 @@ export default function OgretmenLoginPage() {
           soyad,
           pin,
           aktif,
+          hesap_kilitli,
+          yanlis_pin_sayisi,
+          kilitlenme_tarihi,
           isletmeler (
             id,
             ad,
@@ -39,12 +42,38 @@ export default function OgretmenLoginPage() {
         `)
         .eq('ad', formData.ad.trim())
         .eq('soyad', formData.soyad.trim())
-        .eq('pin', formData.pin.trim())
         .eq('aktif', true)
         .single()
 
       if (ogretmenError || !ogretmen) {
         setError('Öğretmen bilgileri hatalı veya hesap aktif değil!')
+        setLoading(false)
+        return
+      }
+
+      // Pin kontrolü için veritabanı fonksiyonunu kullan
+      const { data: pinResult, error: pinError } = await supabase
+        .rpc('check_ogretmen_pin_giris', {
+          p_ogretmen_id: ogretmen.id,
+          p_girilen_pin: formData.pin.trim(),
+          p_ip_adresi: window.location.hostname,
+          p_user_agent: navigator.userAgent
+        })
+
+      if (pinError) {
+        console.error('Pin kontrol hatası:', pinError)
+        setError('Bir hata oluştu. Lütfen tekrar deneyin.')
+        setLoading(false)
+        return
+      }
+
+      if (!pinResult.basarili) {
+        if (pinResult.kilitli) {
+          setError(pinResult.mesaj + (pinResult.kilitlenme_tarihi ? 
+            ` (${new Date(pinResult.kilitlenme_tarihi).toLocaleString('tr-TR')})` : ''))
+        } else {
+          setError(pinResult.mesaj)
+        }
         setLoading(false)
         return
       }

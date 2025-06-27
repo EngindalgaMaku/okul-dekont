@@ -125,24 +125,79 @@ export default function LoginPage() {
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setPinError('')
     
-    let pinValid = false;
-    if (loginType === 'isletme' && selectedIsletme) {
-        if (pinInput === selectedIsletme.pin) {
-            pinValid = true;
-            localStorage.setItem('isletme', JSON.stringify(selectedIsletme))
-            router.push('/panel')
-        }
-    } else if (loginType === 'ogretmen' && selectedOgretmen) {
-        if (pinInput === selectedOgretmen.pin) {
-            pinValid = true;
-            localStorage.setItem('ogretmen', JSON.stringify(selectedOgretmen))
-            router.push('/ogretmen')
-        }
-    }
+    try {
+      if (loginType === 'isletme' && selectedIsletme) {
+        // İşletme pin kontrolü
+        const { data: pinResult, error: pinError } = await supabase
+          .rpc('check_isletme_pin_giris', {
+            p_isletme_id: selectedIsletme.id,
+            p_girilen_pin: pinInput,
+            p_ip_adresi: window.location.hostname,
+            p_user_agent: navigator.userAgent
+          })
 
-    if (!pinValid) {
-        setPinError('PIN kodu hatalı. Lütfen tekrar deneyin.')
+        if (pinError) {
+          setPinError('Sistem hatası: ' + pinError.message)
+          return
+        }
+
+        if (!pinResult) {
+          setPinError('PIN kontrol fonksiyonu yanıt vermedi. Lütfen sistemi kontrol edin.')
+          return
+        }
+
+        if (!pinResult.basarili) {
+          if (pinResult.kilitli) {
+            setPinError(pinResult.mesaj + (pinResult.kilitlenme_tarihi ? 
+              ` (${new Date(pinResult.kilitlenme_tarihi).toLocaleString('tr-TR')})` : ''))
+          } else {
+            setPinError(pinResult.mesaj)
+          }
+          return
+        }
+
+        // Başarılı giriş
+        localStorage.setItem('isletme', JSON.stringify(selectedIsletme))
+        router.push('/panel')
+
+      } else if (loginType === 'ogretmen' && selectedOgretmen) {
+        // Öğretmen pin kontrolü
+        const { data: pinResult, error: pinError } = await supabase
+          .rpc('check_ogretmen_pin_giris', {
+            p_ogretmen_id: selectedOgretmen.id,
+            p_girilen_pin: pinInput,
+            p_ip_adresi: window.location.hostname,
+            p_user_agent: navigator.userAgent
+          })
+
+        if (pinError) {
+          setPinError('Sistem hatası: ' + pinError.message)
+          return
+        }
+
+        if (!pinResult) {
+          setPinError('PIN kontrol fonksiyonu yanıt vermedi. Lütfen sistemi kontrol edin.')
+          return
+        }
+
+        if (!pinResult.basarili) {
+          if (pinResult.kilitli) {
+            setPinError(pinResult.mesaj + (pinResult.kilitlenme_tarihi ? 
+              ` (${new Date(pinResult.kilitlenme_tarihi).toLocaleString('tr-TR')})` : ''))
+          } else {
+            setPinError(pinResult.mesaj)
+          }
+          return
+        }
+
+        // Başarılı giriş
+        localStorage.setItem('ogretmen', JSON.stringify(selectedOgretmen))
+        router.push('/ogretmen')
+      }
+    } catch (error) {
+      setPinError('Beklenmeyen bir hata oluştu: ' + (error as Error).message)
     }
   }
 
@@ -317,7 +372,7 @@ export default function LoginPage() {
                 <div className="mx-auto w-16 h-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
                   <AcademicCapIcon className="h-8 w-8 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900">Staj Takip Sistemi</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Koordinatörlük Yönetimi</h1>
                 <p className="text-gray-600 mt-1">Hüsniye Özdilek MTAL</p>
             </div>
             

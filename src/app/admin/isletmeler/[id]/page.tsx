@@ -57,9 +57,27 @@ interface Ogrenci {
   alan_id: number;
   sinif: string;
   isletme_id?: number;
-  baslangic_tarihi?: string;
   alanlar: {
     ad: string;
+  };
+}
+
+interface Staj {
+  id: number;
+  ogrenci_id: number;
+  baslangic_tarihi: string;
+  bitis_tarihi: string;
+  fesih_tarihi?: string;
+  durum: string;
+  ogrenciler: {
+    id: number;
+    ad: string;
+    soyad: string;
+    no: string;
+    sinif: string;
+    alanlar: {
+      ad: string;
+    };
   };
 }
 
@@ -107,15 +125,18 @@ export default function IsletmeDetayPage() {
 
   const [activeTab, setActiveTab] = useState('temel')
   const [isletme, setIsletme] = useState<Isletme | null>(null)
-  const [ogrenciler, setOgrenciler] = useState<Ogrenci[]>([])
+  const [stajlar, setStajlar] = useState<Staj[]>([])
   const [isletmeAlanlar, setIsletmeAlanlar] = useState<IsletmeAlan[]>([])
   const [loading, setLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
   const [ogrenciModalOpen, setOgrenciModalOpen] = useState(false)
+  const [fesihModalOpen, setFesihModalOpen] = useState(false)
   const [belgeModalOpen, setBelgeModalOpen] = useState(false)
   const [alanlar, setAlanlar] = useState<Alan[]>([])
   const [belgeler, setBelgeler] = useState<Belge[]>([])
   const [dekontlar, setDekontlar] = useState<Dekont[]>([])
+  const [mevcutOgrenciler, setMevcutOgrenciler] = useState<Ogrenci[]>([])
+  const [selectedStaj, setSelectedStaj] = useState<Staj | null>(null)
 
   const [formData, setFormData] = useState({
     ad: '',
@@ -127,12 +148,12 @@ export default function IsletmeDetayPage() {
   })
 
   const [ogrenciFormData, setOgrenciFormData] = useState({
-    ad: '',
-    soyad: '',
-    no: '',
-    sinif: '',
-    alan_id: '',
+    ogrenci_id: '',
     baslangic_tarihi: ''
+  })
+
+  const [fesihFormData, setFesihFormData] = useState({
+    fesih_tarihi: ''
   })
 
   const [belgeFormData, setBelgeFormData] = useState({
@@ -173,9 +194,58 @@ export default function IsletmeDetayPage() {
     }
   }
 
-  // Fetch öğrenciler
-  async function fetchOgrenciler() {
+  // Fetch stajlar ve öğrenciler
+  async function fetchStajlar() {
     try {
+      const { data, error } = await supabase
+        .from('stajlar')
+        .select(`
+          id,
+          ogrenci_id,
+          baslangic_tarihi,
+          bitis_tarihi,
+          fesih_tarihi,
+          durum,
+          ogrenciler!inner (
+            id,
+            ad,
+            soyad,
+            no,
+            sinif,
+            alanlar (ad)
+          )
+        `)
+        .eq('isletme_id', isletmeId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Stajlar çekilirken hata:', error)
+        return
+      }
+
+      setStajlar(data as any || [])
+    } catch (error) {
+      console.error('Staj fetch hatası:', error)
+    }
+  }
+
+  // Fetch mevcut öğrenciler (işletmenin alanlarına göre)
+  async function fetchMevcutOgrenciler() {
+    try {
+      // Önce işletmenin alanlarını al
+      const { data: isletmeAlanData } = await supabase
+        .from('isletme_alanlar')
+        .select('alan_id')
+        .eq('isletme_id', isletmeId)
+
+      if (!isletmeAlanData || isletmeAlanData.length === 0) {
+        setMevcutOgrenciler([])
+        return
+      }
+
+      const alanIds = isletmeAlanData.map(ia => ia.alan_id)
+
+      // Bu alanlardaki öğrencileri getir (aktif stajda olmayanlar)
       const { data, error } = await supabase
         .from('ogrenciler')
         .select(`
@@ -183,27 +253,27 @@ export default function IsletmeDetayPage() {
           ad,
           soyad,
           no,
-          alan_id,
           sinif,
-          isletme_id,
+          alan_id,
           alanlar!inner (ad)
         `)
-        .eq('isletme_id', isletmeId)
+        .in('alan_id', alanIds)
+        .is('isletme_id', null) // Aktif stajda olmayan öğrenciler
         .order('ad')
 
       if (error) {
-        console.error('Öğrenciler çekilirken hata:', error)
+        console.error('Mevcut öğrenciler çekilirken hata:', error)
         return
       }
 
       const transformedData = data?.map(item => ({
         ...item,
-        alanlar: item.alanlar && item.alanlar.length > 0 ? item.alanlar[0] : { ad: 'Belirtilmemiş' }
+        alanlar: item.alanlar
       })) || []
 
-      setOgrenciler(transformedData as Ogrenci[])
+      setMevcutOgrenciler(transformedData as any)
     } catch (error) {
-      console.error('Öğrenci fetch hatası:', error)
+      console.error('Mevcut öğrenci fetch hatası:', error)
     }
   }
 
@@ -295,11 +365,12 @@ export default function IsletmeDetayPage() {
     if (isletmeId) {
       Promise.all([
         fetchIsletme(),
-        fetchOgrenciler(), 
+        fetchStajlar(), 
         fetchIsletmeAlanlar(),
         fetchAlanlar(),
         fetchBelgeler(),
-        fetchDekontlar()
+        fetchDekontlar(),
+        fetchMevcutOgrenciler()
       ]).then(() => {
         setLoading(false)
       })
@@ -336,42 +407,16 @@ export default function IsletmeDetayPage() {
     }
   }
 
-  // Öğrenci ekle
+  // Öğrenci ekle (mevcut öğrenciden seç)
   const handleOgrenciEkle = async () => {
     try {
       // Form validation
-      if (!ogrenciFormData.ad || !ogrenciFormData.soyad || !ogrenciFormData.no || 
-          !ogrenciFormData.sinif || !ogrenciFormData.alan_id || !ogrenciFormData.baslangic_tarihi) {
+      if (!ogrenciFormData.ogrenci_id || !ogrenciFormData.baslangic_tarihi) {
         alert('Lütfen tüm alanları doldurun!')
         return
       }
 
-      console.log('Öğrenci ekleme başlatılıyor...', ogrenciFormData)
-
-      // Önce öğrenciyi ekle
-      const ogrenciInsertData = {
-        ad: ogrenciFormData.ad.trim(),
-        soyad: ogrenciFormData.soyad.trim(),
-        no: ogrenciFormData.no.trim(),
-        sinif: ogrenciFormData.sinif.trim(),
-        alan_id: parseInt(ogrenciFormData.alan_id),
-        isletme_id: parseInt(isletmeId)
-      }
-
-      console.log('Öğrenci verisi:', ogrenciInsertData)
-
-      const { data: ogrenciData, error: ogrenciError } = await supabase
-        .from('ogrenciler')
-        .insert(ogrenciInsertData)
-        .select()
-
-      if (ogrenciError) {
-        console.error('Öğrenci ekleme hatası:', ogrenciError)
-        alert('Öğrenci eklenirken hata oluştu: ' + ogrenciError.message)
-        return
-      }
-
-      console.log('Öğrenci eklendi:', ogrenciData)
+      console.log('Staj ekleme başlatılıyor...', ogrenciFormData)
 
       // Aktif eğitim yılını al
       const { data: egitimYiliData, error: egitimYiliError } = await supabase
@@ -384,9 +429,9 @@ export default function IsletmeDetayPage() {
         console.warn('Aktif eğitim yılı bulunamadı, varsayılan kullanılacak:', egitimYiliError)
       }
 
-      // Sonra staj kaydı oluştur
+      // Staj kaydı oluştur
       const stajInsertData = {
-        ogrenci_id: ogrenciData[0].id,
+        ogrenci_id: parseInt(ogrenciFormData.ogrenci_id),
         isletme_id: parseInt(isletmeId),
         ogretmen_id: isletme?.ogretmen_id || null,
         egitim_yili_id: egitimYiliData?.id || 1,
@@ -407,24 +452,30 @@ export default function IsletmeDetayPage() {
         return
       }
 
+      // Öğrencinin isletme_id'sini güncelle (aktif staj için)
+      const { error: ogrenciUpdateError } = await supabase
+        .from('ogrenciler')
+        .update({ isletme_id: parseInt(isletmeId) })
+        .eq('id', parseInt(ogrenciFormData.ogrenci_id))
+
+      if (ogrenciUpdateError) {
+        console.error('Öğrenci güncelleme hatası:', ogrenciUpdateError)
+      }
+
       // Başarılı
-      alert('Öğrenci başarıyla eklendi!')
+      alert('Öğrenci başarıyla işletmeye eklendi!')
       setOgrenciModalOpen(false)
       setOgrenciFormData({
-        ad: '',
-        soyad: '',
-        no: '',
-        sinif: '',
-        alan_id: '',
+        ogrenci_id: '',
         baslangic_tarihi: ''
       })
       
       // Veriyi yeniden fetch et
-      await fetchOgrenciler()
+      await Promise.all([fetchStajlar(), fetchMevcutOgrenciler()])
       
     } catch (error) {
-      console.error('Öğrenci ekleme genel hatası:', error)
-      alert('Öğrenci eklenirken beklenmeyen bir hata oluştu!')
+      console.error('Staj ekleme genel hatası:', error)
+      alert('Staj eklenirken beklenmeyen bir hata oluştu!')
     }
   }
 
@@ -511,7 +562,7 @@ export default function IsletmeDetayPage() {
       id: 'ogrenciler', 
       name: 'Öğrenciler', 
       icon: GraduationCap,
-      count: ogrenciler.length
+      count: stajlar.length
     },
     { 
       id: 'koordinatorler', 
@@ -701,12 +752,115 @@ export default function IsletmeDetayPage() {
             )}
             
             {activeTab === 'ogrenciler' && (
-              <OgrencilerPanel 
-                ogrenciler={ogrenciler}
-                isletmeId={Number(isletmeId)}
-                onRefresh={fetchOgrenciler}
-                onOgrenciEkle={() => setOgrenciModalOpen(true)}
-              />
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Stajyer Öğrenciler</h3>
+                    <p className="text-sm text-gray-600">Toplam {stajlar.length} aktif stajyer</p>
+                  </div>
+                  <button 
+                    onClick={() => setOgrenciModalOpen(true)}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Öğrenci Ekle
+                  </button>
+                </div>
+
+                {stajlar.length > 0 ? (
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Öğrenci
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Alan
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Staj Dönemi
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Durum
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            İşlemler
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {stajlar.map((staj: any) => (
+                          <tr key={staj.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
+                                  <User className="h-5 w-5 text-indigo-600" />
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {staj.ogrenciler.ad} {staj.ogrenciler.soyad}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    No: {staj.ogrenciler.no} - {staj.ogrenciler.sinif}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {staj.ogrenciler.alanlar.ad}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <div>
+                                <div>{new Date(staj.baslangic_tarihi).toLocaleDateString('tr-TR')}</div>
+                                <div className="text-xs text-gray-500">
+                                  - {new Date(staj.bitis_tarihi).toLocaleDateString('tr-TR')}
+                                </div>
+                                {staj.fesih_tarihi && (
+                                  <div className="text-xs text-red-500">
+                                    Fesih: {new Date(staj.fesih_tarihi).toLocaleDateString('tr-TR')}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                staj.durum === 'aktif' ? 'bg-green-100 text-green-800' :
+                                staj.durum === 'tamamlandi' ? 'bg-blue-100 text-blue-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {staj.durum === 'aktif' ? 'Aktif' :
+                                 staj.durum === 'tamamlandi' ? 'Tamamlandı' : 'Feshedildi'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              {staj.durum === 'aktif' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedStaj(staj)
+                                    setFesihModalOpen(true)
+                                  }}
+                                  className="text-red-600 hover:text-red-900 ml-2"
+                                >
+                                  Feshet
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <GraduationCap className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">Henüz stajyer yok</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Bu işletmede aktif stajyer bulunmuyor.
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
             
             {activeTab === 'koordinatorler' && (
@@ -743,96 +897,52 @@ export default function IsletmeDetayPage() {
         </div>
       </div>
 
-      {/* Öğrenci Ekleme Modalı */}
+      {/* Öğrenci Ekleme Modalı - Mevcut Öğrencilerden Seç */}
       <Modal 
         isOpen={ogrenciModalOpen} 
         onClose={() => setOgrenciModalOpen(false)}
-        title="Yeni Öğrenci Ekle"
+        title="İşletmeye Öğrenci Ekle"
       >
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ad
-              </label>
-              <input
-                type="text"
-                value={ogrenciFormData.ad}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, ad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Öğrenci adı"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Soyad
-              </label>
-              <input
-                type="text"
-                value={ogrenciFormData.soyad}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, soyad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Öğrenci soyadı"
-              />
-            </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-blue-800">
+              <strong>Not:</strong> Sadece işletmenizin alanlarında kayıtlı olan ve şu anda aktif stajda olmayan öğrenciler listelenmektedir.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Öğrenci No
-              </label>
-              <input
-                type="text"
-                value={ogrenciFormData.no}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, no: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="1234"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sınıf
-              </label>
-              <input
-                type="text"
-                value={ogrenciFormData.sinif}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, sinif: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="11-A, 12-B..."
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Öğrenci Seç
+            </label>
+            <select
+              value={ogrenciFormData.ogrenci_id}
+              onChange={(e) => setOgrenciFormData({...ogrenciFormData, ogrenci_id: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Öğrenci seçiniz...</option>
+              {mevcutOgrenciler.map((ogrenci) => (
+                <option key={ogrenci.id} value={ogrenci.id}>
+                  {ogrenci.ad} {ogrenci.soyad} - {ogrenci.no} ({ogrenci.sinif}) - {ogrenci.alanlar.ad}
+                </option>
+              ))}
+            </select>
+            {mevcutOgrenciler.length === 0 && (
+              <p className="text-sm text-gray-500 mt-2">
+                Bu işletmenin alanlarında staja uygun öğrenci bulunmuyor.
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Alan
-              </label>
-              <select
-                value={ogrenciFormData.alan_id}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, alan_id: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Seçiniz...</option>
-                {alanlar.map((alan) => (
-                  <option key={alan.id} value={alan.id}>
-                    {alan.ad}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                İşe Başlama Tarihi
-              </label>
-              <input
-                type="date"
-                value={ogrenciFormData.baslangic_tarihi}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, baslangic_tarihi: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              İşe Başlama Tarihi
+            </label>
+            <input
+              type="date"
+              value={ogrenciFormData.baslangic_tarihi}
+              onChange={(e) => setOgrenciFormData({...ogrenciFormData, baslangic_tarihi: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
@@ -844,9 +954,107 @@ export default function IsletmeDetayPage() {
             </button>
             <button
               onClick={handleOgrenciEkle}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
+              disabled={!ogrenciFormData.ogrenci_id || !ogrenciFormData.baslangic_tarihi}
+              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              Öğrenci Ekle
+              Staj Başlat
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Fesih Modalı */}
+      <Modal 
+        isOpen={fesihModalOpen} 
+        onClose={() => setFesihModalOpen(false)}
+        title="Staj Feshi"
+      >
+        <div className="space-y-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-red-800">
+              <strong>Dikkat:</strong> Bu işlem geri alınamaz. Stajı feshettiğinizde öğrenci aktif staj listesinden çıkarılacaktır.
+            </p>
+          </div>
+
+          {selectedStaj && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-2">Feshedilecek Staj:</h4>
+              <p className="text-sm text-gray-600">
+                <strong>Öğrenci:</strong> {(selectedStaj as any).ogrenciler.ad} {(selectedStaj as any).ogrenciler.soyad}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Başlangıç:</strong> {new Date((selectedStaj as any).baslangic_tarihi).toLocaleDateString('tr-TR')}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Fesih Tarihi
+            </label>
+            <input
+              type="date"
+              value={fesihFormData.fesih_tarihi}
+              onChange={(e) => setFesihFormData({...fesihFormData, fesih_tarihi: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={() => setFesihModalOpen(false)}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              onClick={async () => {
+                if (!fesihFormData.fesih_tarihi || !selectedStaj) {
+                  alert('Fesih tarihi gereklidir!')
+                  return
+                }
+
+                try {
+                  // Stajı feshet
+                  const { error: stajError } = await supabase
+                    .from('stajlar')
+                    .update({ 
+                      fesih_tarihi: fesihFormData.fesih_tarihi,
+                      durum: 'fesih' 
+                    })
+                    .eq('id', (selectedStaj as any).id)
+
+                  if (stajError) {
+                    alert('Fesih işlemi sırasında hata oluştu!')
+                    return
+                  }
+
+                  // Öğrencinin isletme_id'sini temizle
+                  const { error: ogrenciError } = await supabase
+                    .from('ogrenciler')
+                    .update({ isletme_id: null })
+                    .eq('id', (selectedStaj as any).ogrenci_id)
+
+                  if (ogrenciError) {
+                    console.error('Öğrenci güncelleme hatası:', ogrenciError)
+                  }
+
+                  alert('Staj başarıyla feshedildi!')
+                  setFesihModalOpen(false)
+                  setFesihFormData({ fesih_tarihi: '' })
+                  setSelectedStaj(null)
+                  
+                  // Veriyi yeniden fetch et
+                  await Promise.all([fetchStajlar(), fetchMevcutOgrenciler()])
+                } catch (error) {
+                  console.error('Fesih hatası:', error)
+                  alert('Fesih işlemi sırasında hata oluştu!')
+                }
+              }}
+              disabled={!fesihFormData.fesih_tarihi}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              Stajı Feshet
             </button>
           </div>
         </div>

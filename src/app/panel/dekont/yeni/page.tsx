@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Upload, ArrowLeft } from 'lucide-react'
+import { Building2, Upload, ArrowLeft, User, Calendar, CreditCard, FileText, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
+import { uploadFile, validateFile } from '@/lib/storage'
 
 interface Stajyer {
   id: number
@@ -74,10 +75,29 @@ export default function YeniDekontPage() {
     setLoading(true)
 
     try {
-      // Dosya yükleme işlemi (gerçek uygulamada Supabase Storage kullanılır)
       let dosyaUrl = null
+      let dosyaPath = null
+
+      // Dosya yükleme işlemi
       if (dekontDosyasi) {
-        dosyaUrl = `dekont_${Date.now()}_${dekontDosyasi.name}`
+        // Dosya validasyonu
+        const validation = validateFile(dekontDosyasi, 10, ['pdf', 'jpg', 'jpeg', 'png'])
+        if (!validation.valid) {
+          alert(validation.error)
+          setLoading(false)
+          return
+        }
+
+        // Dosyayı Supabase Storage'a yükle
+        const uploadResult = await uploadFile('dekontlar', dekontDosyasi, 'dekont_')
+        if (!uploadResult) {
+          alert('Dosya yüklenirken hata oluştu!')
+          setLoading(false)
+          return
+        }
+
+        dosyaUrl = uploadResult.url
+        dosyaPath = uploadResult.path
       }
 
       const { error } = await supabase
@@ -87,6 +107,7 @@ export default function YeniDekontPage() {
           miktar: miktar ? parseFloat(miktar) : null,
           odeme_tarihi: odemeTarihi,
           dekont_dosyasi: dosyaUrl,
+          dekont_dosya_path: dosyaPath,
           onay_durumu: 'bekliyor'
         })
 
@@ -99,10 +120,10 @@ export default function YeniDekontPage() {
       setOdemeTarihi(new Date().toISOString().split('T')[0])
       setDekontDosyasi(null)
 
-      // 2 saniye sonra panele dön
+      // 3 saniye sonra panele dön
       setTimeout(() => {
         router.push('/panel')
-      }, 2000)
+      }, 3000)
 
     } catch (error) {
       console.error('Dekont gönderme hatası:', error)
@@ -115,154 +136,231 @@ export default function YeniDekontPage() {
   if (!isletme) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push('/panel')}
-              className="flex items-center text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Panele Dön
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-lg shadow-xl border-b border-indigo-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <button
+                onClick={() => router.push('/panel')}
+                className="flex items-center text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl transition-all duration-200 mr-4"
+              >
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                Panele Dön
+              </button>
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                  <Building2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    {isletme.ad}
+                  </h1>
+                  <p className="text-sm text-gray-600">Dekont Yükleme Sistemi</p>
+                </div>
+              </div>
+            </div>
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900">{okulAdi}</p>
-              <p className="text-xs text-gray-500">{egitimYili} Eğitim-Öğretim Yılı</p>
+              <p className="text-xs text-indigo-600">{egitimYili} Eğitim-Öğretim Yılı</p>
             </div>
           </div>
         </div>
+      </header>
 
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-            <h1 className="text-lg font-medium text-gray-900">Yeni Dekont Yükle</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Stajyer öğrenci için ödeme dekontu yükleyin
-            </p>
-          </div>
-
-          <div className="px-4 py-5 sm:p-6">
-            {success ? (
-              <div className="text-center py-12">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                  <svg
-                    className="h-6 w-6 text-green-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+      {/* Main Content */}
+      <main className="flex-grow py-8">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border border-indigo-100 overflow-hidden">
+            {/* Page Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8">
+              <div className="flex items-center">
+                <div className="p-3 bg-white/20 rounded-xl mr-4">
+                  <Upload className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="mt-3 text-lg font-medium text-gray-900">
-                  Dekont Başarıyla Gönderildi
-                </h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  Panele yönlendiriliyorsunuz...
-                </p>
+                <div>
+                  <h1 className="text-2xl font-bold text-white">Yeni Dekont Yükle</h1>
+                  <p className="text-indigo-100 mt-1">
+                    Stajyer öğrenci için ödeme dekontu yükleyin
+                  </p>
+                </div>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Stajyer Öğrenci
-                  </label>
-                  <select
-                    value={selectedStajyer}
-                    onChange={(e) => setSelectedStajyer(e.target.value)}
-                    required
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  >
-                    <option value="">Öğrenci Seçin</option>
-                    {stajyerler.map((stajyer) => (
-                      <option key={stajyer.id} value={stajyer.id}>
-                        {stajyer.ad} {stajyer.soyad} - {stajyer.sinif}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Ödeme Miktarı (TL) <span className="text-gray-500 text-xs">(İsteğe bağlı)</span>
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      type="number"
-                      value={miktar}
-                      onChange={(e) => setMiktar(e.target.value)}
-                      step="0.01"
-                      min="0"
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                    />
+            <div className="p-6">
+              {success ? (
+                <div className="text-center py-16">
+                  <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
                   </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    Dekont Başarıyla Gönderildi!
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Dekontunuz onay için yöneticilere gönderildi.
+                  </p>
+                  <p className="text-sm text-indigo-600">
+                    Panele yönlendiriliyorsunuz...
+                  </p>
                 </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* Stajyer Seçimi */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <User className="w-4 h-4 inline mr-2" />
+                      Stajyer Öğrenci
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedStajyer}
+                        onChange={(e) => setSelectedStajyer(e.target.value)}
+                        required
+                        className="w-full pl-4 pr-10 py-4 text-base border-2 border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white"
+                      >
+                        <option value="">Öğrenci Seçin</option>
+                        {stajyerler.map((stajyer) => (
+                          <option key={stajyer.id} value={stajyer.id}>
+                            {stajyer.ad} {stajyer.soyad} - {stajyer.sinif}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {stajyerler.length === 0 && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Henüz aktif stajyer bulunmuyor.
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Ödeme Tarihi
-                  </label>
-                  <div className="mt-1">
+                  {/* Ödeme Miktarı */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <CreditCard className="w-4 h-4 inline mr-2" />
+                      Ödeme Miktarı (TL) 
+                      <span className="text-gray-500 text-xs ml-2">(İsteğe bağlı)</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={miktar}
+                        onChange={(e) => setMiktar(e.target.value)}
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        className="w-full pl-4 pr-4 py-4 text-base border-2 border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+                        ₺
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ödeme Tarihi */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <Calendar className="w-4 h-4 inline mr-2" />
+                      Ödeme Tarihi
+                    </label>
                     <input
                       type="date"
                       value={odemeTarihi}
                       onChange={(e) => setOdemeTarihi(e.target.value)}
                       required
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      className="w-full pl-4 pr-4 py-4 text-base border-2 border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Dekont Dosyası <span className="text-red-500">*</span>
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      type="file"
-                      onChange={(e) => setDekontDosyasi(e.target.files?.[0] || null)}
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      required
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                    />
+                  {/* Dosya Yükleme */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <FileText className="w-4 h-4 inline mr-2" />
+                      Dekont Dosyası <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className="flex items-center justify-center w-full">
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-indigo-400 transition-all duration-200">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                            <p className="mb-2 text-sm text-gray-500">
+                              <span className="font-semibold">Dosya yüklemek için tıklayın</span>
+                            </p>
+                            <p className="text-xs text-gray-500">PDF, JPG, JPEG veya PNG (MAX. 10MB)</p>
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => setDekontDosyasi(e.target.files?.[0] || null)}
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            required
+                          />
+                        </label>
+                      </div>
+                      {dekontDosyasi && (
+                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center">
+                            <FileText className="w-5 h-5 text-green-600 mr-2" />
+                            <span className="text-sm text-green-800 font-medium">
+                              {dekontDosyasi.name}
+                            </span>
+                            <span className="text-xs text-green-600 ml-auto">
+                              {(dekontDosyasi.size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">
-                    PDF, JPG veya PNG formatında dekont dosyası yükleyin
-                  </p>
-                </div>
 
-                <div className="pt-5">
-                  <div className="flex justify-end">
+                  {/* Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-4 pt-6">
                     <button
                       type="button"
                       onClick={() => router.push('/panel')}
-                      className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      className="flex-1 bg-white text-gray-700 py-4 px-6 border-2 border-gray-200 rounded-xl shadow-sm text-sm font-medium hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
                     >
                       İptal
                     </button>
                     <button
                       type="submit"
-                      disabled={loading || !dekontDosyasi}
-                      className={`ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
-                        !dekontDosyasi
+                      disabled={loading || !dekontDosyasi || !selectedStajyer}
+                      className={`flex-1 py-4 px-6 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white transition-all duration-200 flex items-center justify-center ${
+                        !dekontDosyasi || !selectedStajyer
                           ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                          : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform hover:scale-105'
                       }`}
                     >
-                      {loading ? 'Gönderiliyor...' : 'Dekont Gönder'}
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                          Gönderiliyor...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5 mr-2" />
+                          Dekont Gönder
+                        </>
+                      )}
                     </button>
                   </div>
-                </div>
-              </form>
-            )}
+                </form>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white/80 backdrop-blur-lg shadow-xl border-t border-indigo-100 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              &copy; {new Date().getFullYear()} {okulAdi} - Koordinatörlük Yönetimi Sistemi. Tüm Hakları Saklıdır.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
-} 
+}

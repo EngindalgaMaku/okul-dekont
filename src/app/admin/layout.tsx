@@ -14,16 +14,20 @@ import {
   FileText,
   LogOut,
   Calendar,
-  Shield
+  Shield,
+  Settings
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Ana Panel', href: '/admin', icon: Home },
-  { name: 'Eğitim Yılı', href: '/admin/egitim-yili', icon: Calendar },
   { name: 'Alan Yönetimi', href: '/admin/alanlar', icon: Briefcase },
   { name: 'İşletme Yönetimi', href: '/admin/isletmeler', icon: Building },
   { name: 'Öğretmen Yönetimi', href: '/admin/ogretmenler', icon: Users },
   { name: 'Dekont Yönetimi', href: '/admin/dekontlar', icon: FileText },
+]
+
+const settingsNavigation = [
+  { name: 'Sistem Ayarları', href: '/admin/ayarlar', icon: Settings },
 ]
 
 function classNames(...classes: string[]) {
@@ -143,8 +147,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </div>
                     <span className="text-xl font-bold text-gray-800">Admin Paneli</span>
                   </div>
-                  <div className="mt-5 flex-1 h-0 overflow-y-auto">
-                    <nav className="px-2 space-y-1">
+                  <div className="mt-5 flex-1 h-0 overflow-y-auto flex flex-col">
+                    <nav className="px-2 space-y-1 flex-1">
                       {navigation.map((item) => (
                         <Link
                           key={item.name}
@@ -167,6 +171,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         </Link>
                       ))}
                     </nav>
+                    
+                    {/* Ayarlar Bölümü */}
+                    <div className="px-2 pt-4 border-t border-gray-200">
+                      <p className="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Ayarlar
+                      </p>
+                      {settingsNavigation.map((item) => (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          className={classNames(
+                            pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
+                              ? 'bg-gradient-to-r from-orange-50 to-yellow-50 text-orange-600 border-r-2 border-orange-500'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                            'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
+                          )}
+                        >
+                          <item.icon
+                            className={classNames(
+                              pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href)) ? 'text-orange-500' : 'text-gray-400 group-hover:text-gray-500',
+                              'mr-3 flex-shrink-0 h-6 w-6'
+                            )}
+                            aria-hidden="true"
+                          />
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
@@ -239,6 +271,42 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   </Link>
                 ))}
               </nav>
+              
+              {/* Ayarlar Bölümü */}
+              <div className={classNames(
+                "border-t border-gray-100 pt-2 pb-2 transition-all duration-300",
+                desktopSidebarOpen ? "px-2" : "px-1"
+              )}>
+                {desktopSidebarOpen && (
+                  <p className="px-1 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    Ayarlar
+                  </p>
+                )}
+                {settingsNavigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={classNames(
+                      pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href))
+                        ? 'bg-gradient-to-r from-orange-50 to-yellow-50 text-orange-600 border-r-4 border-orange-500 shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:shadow-sm',
+                      'group flex items-center text-sm font-medium rounded-l-lg transition-all duration-200',
+                      desktopSidebarOpen ? 'px-3 py-2' : 'px-2 py-2 justify-center'
+                    )}
+                    title={!desktopSidebarOpen ? item.name : undefined}
+                  >
+                    <item.icon
+                      className={classNames(
+                        pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href)) ? 'text-orange-500' : 'text-gray-400 group-hover:text-gray-500',
+                        'flex-shrink-0 h-5 w-5',
+                        desktopSidebarOpen ? 'mr-3' : ''
+                      )}
+                      aria-hidden="true"
+                    />
+                    {desktopSidebarOpen && item.name}
+                  </Link>
+                ))}
+              </div>
               <div className={classNames(
                 "border-t border-gray-100 transition-all duration-300",
                 desktopSidebarOpen ? "p-2" : "p-1"

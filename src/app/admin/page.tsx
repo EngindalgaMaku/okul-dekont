@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Users, Building, Calendar, TrendingUp, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { FileText, Users, Building, TrendingUp, CheckCircle, Clock, XCircle, Shield, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function AdminDashboard() {
@@ -12,7 +12,8 @@ export default function AdminDashboard() {
     rededilenDekontlar: 1,
     totalIsletmeler: 6,
     totalOgretmenler: 0,
-    totalOgrenciler: 0
+    totalOgrenciler: 0,
+    kilitliHesaplar: 0
   })
 
   const quickActions = [
@@ -44,13 +45,13 @@ export default function AdminDashboard() {
       textColor: 'text-purple-600'
     },
     {
-      title: 'Eğitim Yılı',
-      description: 'Aktif eğitim yılını ayarlayın',
-      href: '/admin/egitim-yili',
-      icon: Calendar,
-      color: 'from-orange-500 to-orange-600',
-      bgColor: 'bg-orange-50',
-      textColor: 'text-orange-600'
+      title: 'Güvenlik Yönetimi',
+      description: 'Kilitli hesapları yönetin',
+      href: '/admin/guvenlik',
+      icon: Shield,
+      color: 'from-red-500 to-red-600',
+      bgColor: 'bg-red-50',
+      textColor: 'text-red-600'
     }
   ]
 
@@ -59,7 +60,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-8 text-white">
         <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-indigo-100">Hüsniye Özdilek MTAL - Staj Takip Sistemi</p>
+        <p className="text-indigo-100">Hüsniye Özdilek MTAL - Koordinatörlük Yönetimi</p>
       </div>
 
       {/* Stats Grid */}
@@ -124,6 +125,56 @@ export default function AdminDashboard() {
           </div>
           <div className="mt-4 flex items-center">
             <span className="text-sm text-gray-500">Bu hafta</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Security Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Kilitli Hesaplar</p>
+              <p className="text-3xl font-bold text-orange-600">{stats.kilitliHesaplar}</p>
+            </div>
+            <div className="p-3 bg-orange-50 rounded-xl">
+              <AlertTriangle className="h-6 w-6 text-orange-600" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <Link href="/admin/guvenlik" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+              Yönet →
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Güvenlik Logları</p>
+              <p className="text-3xl font-bold text-gray-900">24</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-xl">
+              <Shield className="h-6 w-6 text-gray-600" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center">
+            <span className="text-sm text-gray-500">Son 24 saat</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Başarısız Girişler</p>
+              <p className="text-3xl font-bold text-red-600">8</p>
+            </div>
+            <div className="p-3 bg-red-50 rounded-xl">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center">
+            <span className="text-sm text-gray-500">Son 24 saat</span>
           </div>
         </div>
       </div>

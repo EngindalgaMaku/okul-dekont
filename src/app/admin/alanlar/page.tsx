@@ -133,7 +133,12 @@ export default function AlanYonetimiPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Briefcase className="h-5 w-5 text-indigo-500 mr-3" />
-                        <span className="text-sm font-medium text-gray-900">{alan.ad}</span>
+                        <button
+                          onClick={() => router.push(`/admin/alanlar/${alan.id}`)}
+                          className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline transition-colors duration-200"
+                        >
+                          {alan.ad}
+                        </button>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
