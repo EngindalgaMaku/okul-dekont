@@ -117,6 +117,12 @@ interface Dekont {
   tarih: string;
   aciklama: string;
   tutar: number;
+  ay: string;
+  ogrenci_adi?: string;
+  dosya_url?: string;
+  onay_durumu?: string;
+  staj_id?: number;
+  ogrenci_id?: number;
 }
 
 export default function IsletmeDetayPage() {
@@ -139,6 +145,12 @@ export default function IsletmeDetayPage() {
   const [dekontlar, setDekontlar] = useState<Dekont[]>([])
   const [mevcutOgrenciler, setMevcutOgrenciler] = useState<Ogrenci[]>([])
   const [selectedStaj, setSelectedStaj] = useState<Staj | null>(null)
+  
+  // Dekont görüntüleme için state'ler
+  const [dekontViewModalOpen, setDekontViewModalOpen] = useState(false)
+  const [selectedStajDekontlar, setSelectedStajDekontlar] = useState<Dekont[]>([])
+  const [selectedDekont, setSelectedDekont] = useState<Dekont | null>(null)
+  const [dekontDetailModalOpen, setDekontDetailModalOpen] = useState(false)
 
   const [formData, setFormData] = useState({
     ad: '',
@@ -167,6 +179,7 @@ export default function IsletmeDetayPage() {
 
   const [dekontFormData, setDekontFormData] = useState({
     tarih: '',
+    ay: '',
     aciklama: '',
     tutar: '',
     dosya: null as File | null
@@ -562,7 +575,7 @@ export default function IsletmeDetayPage() {
   }
 
   const handleDekontEkle = async () => {
-    if (!selectedStaj || !dekontFormData.tarih || !dekontFormData.aciklama || !dekontFormData.tutar) {
+    if (!selectedStaj || !dekontFormData.tarih || !dekontFormData.ay || !dekontFormData.aciklama || !dekontFormData.tutar) {
       alert('Tüm alanlar zorunludur!')
       return
     }
@@ -598,11 +611,82 @@ export default function IsletmeDetayPage() {
       alert('Dekont başarıyla eklendi!')
       setDekontModalOpen(false)
       setSelectedStaj(null)
-      setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+      setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
       fetchDekontlar()
     } catch (error) {
       console.error('Dekont ekleme hatası:', error)
       alert('Dekont eklenirken hata oluştu!')
+    }
+  }
+
+  // Dekont görüntüleme fonksiyonları
+  const handleDekontlarGoster = async (staj: Staj) => {
+    try {
+      const { data: dekontData } = await supabase
+        .from('dekontlar')
+        .select(`
+          id,
+          tarih,
+          aciklama,
+          tutar,
+          dosya_url,
+          onay_durumu,
+          created_at
+        `)
+        .eq('ogrenci_id', staj.ogrenci_id)
+        .eq('isletme_id', isletmeId)
+        .order('created_at', { ascending: false })
+
+      if (dekontData) {
+        const formattedDekontlar = dekontData.map((dekont: any) => ({
+          id: dekont.id,
+          ogrenci_adi: `${staj.ogrenciler.ad} ${staj.ogrenciler.soyad}`,
+          isletme_id: parseInt(isletmeId),
+          tarih: dekont.tarih,
+          ay: dekont.ay || '',
+          aciklama: dekont.aciklama,
+          tutar: dekont.tutar,
+          dosya_url: dekont.dosya_url,
+          onay_durumu: dekont.onay_durumu,
+          staj_id: staj.id,
+          ogrenci_id: staj.ogrenci_id
+        }))
+        setSelectedStajDekontlar(formattedDekontlar)
+        setSelectedStaj(staj)
+        setDekontViewModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Dekont listesi alınırken hata:', error)
+      alert('Dekontlar yüklenirken hata oluştu!')
+    }
+  }
+
+  const handleDekontDetay = (dekont: Dekont) => {
+    setSelectedDekont(dekont)
+    setDekontDetailModalOpen(true)
+  }
+
+  const getOnayDurumuRenk = (durum: string) => {
+    switch (durum) {
+      case 'onaylandi':
+        return 'bg-green-100 text-green-800'
+      case 'reddedildi':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-yellow-100 text-yellow-800'
+    }
+  }
+
+  const getOnayDurumuText = (durum: string) => {
+    switch (durum) {
+      case 'onaylandi':
+        return 'Onaylandı'
+      case 'reddedildi':
+        return 'Reddedildi'
+      case 'beklemede':
+        return 'Beklemede'
+      default:
+        return 'Bekliyor'
     }
   }
 
@@ -810,12 +894,14 @@ export default function IsletmeDetayPage() {
                   setSelectedStaj(staj)
                   setDekontFormData({ 
                     tarih: new Date().toISOString().split('T')[0], 
+                    ay: '',
                     aciklama: '', 
                     tutar: '', 
                     dosya: null 
                   })
                   setDekontModalOpen(true)
                 }}
+                onDekontlarGoster={handleDekontlarGoster}
               />
             )}
             
@@ -1107,7 +1193,7 @@ export default function IsletmeDetayPage() {
         onClose={() => {
           setDekontModalOpen(false)
           setSelectedStaj(null)
-          setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+          setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
         }}
         title={selectedStaj ? `${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} - Dekont Yükle` : 'Dekont Yükle'}
       >
@@ -1192,7 +1278,7 @@ export default function IsletmeDetayPage() {
               onClick={() => {
                 setDekontModalOpen(false)
                 setSelectedStaj(null)
-                setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+                setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
               }}
               className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
@@ -1473,13 +1559,15 @@ function OgrencilerPanel({
   isletmeId, 
   onRefresh,
   onOgrenciEkle,
-  onDekontEkle
+  onDekontEkle,
+  onDekontlarGoster
 }: { 
   stajlar: Staj[]
   isletmeId: number
   onRefresh: () => void
   onOgrenciEkle: () => void
   onDekontEkle: (staj: Staj) => void
+  onDekontlarGoster: (staj: Staj) => void
 }) {
   const [stajDuzenleModalOpen, setStajDuzenleModalOpen] = useState(false)
   const [fesihModalOpen, setFesihModalOpen] = useState(false)
@@ -1718,6 +1806,14 @@ function OgrencilerPanel({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => onDekontlarGoster(staj)}
+                          className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded transition-all"
+                          title="Dekontları görüntüle"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        
                         <button
                           onClick={() => onDekontEkle(staj)}
                           className="text-green-600 hover:text-green-900 p-1 hover:bg-green-50 rounded transition-all"

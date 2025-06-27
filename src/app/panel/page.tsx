@@ -27,9 +27,14 @@ interface Stajyer {
 interface Dekont {
   id: number
   ogrenci_adi: string
-  miktar: number
+  miktar: number | null
   odeme_tarihi: string
   onay_durumu: 'bekliyor' | 'onaylandi' | 'reddedildi'
+  aciklama?: string
+  dosya_url?: string
+  tarih: string
+  tutar: number | null
+  ay: string
 }
 
 interface Belge {
@@ -62,6 +67,12 @@ export default function PanelPage() {
   // Dekont yönetimi için state'ler
   const [dekontModalOpen, setDekontModalOpen] = useState(false)
   const [selectedStajyer, setSelectedStajyer] = useState<Stajyer | null>(null)
+  
+  // Dekont görüntüleme için state'ler
+  const [dekontViewModalOpen, setDekontViewModalOpen] = useState(false)
+  const [selectedStajyerDekontlar, setSelectedStajyerDekontlar] = useState<Dekont[]>([])
+  const [selectedDekont, setSelectedDekont] = useState<Dekont | null>(null)
+  const [dekontDetailModalOpen, setDekontDetailModalOpen] = useState(false)
 
   // Belge form verileri
   const [belgeFormData, setBelgeFormData] = useState({
@@ -74,6 +85,7 @@ export default function PanelPage() {
   // Dekont form verileri
   const [dekontFormData, setDekontFormData] = useState({
     tarih: '',
+    ay: '',
     aciklama: '',
     tutar: '',
     dosya: null as File | null
@@ -148,34 +160,7 @@ export default function PanelPage() {
       setStajyerler(formattedStajyerler)
     }
 
-    // Dekontları getir
-    const { data: dekontData } = await supabase
-      .from('dekontlar')
-      .select(`
-        id,
-        miktar,
-        odeme_tarihi,
-        onay_durumu,
-        staj:stajlar(
-          ogrenci:ogrenciler(
-            ad,
-            soyad
-          )
-        )
-      `)
-      .eq('isletme_id', storedIsletme.id)
-      .order('created_at', { ascending: false })
-
-    if (dekontData) {
-      const formattedDekontlar = dekontData.map((dekont: any) => ({
-        id: dekont.id,
-        ogrenci_adi: `${dekont.staj.ogrenci.ad} ${dekont.staj.ogrenci.soyad}`,
-        miktar: dekont.miktar,
-        odeme_tarihi: dekont.odeme_tarihi,
-        onay_durumu: dekont.onay_durumu
-      }))
-      setDekontlar(formattedDekontlar)
-    }
+    // Dekontları şu anlık getirmiyoruz - tablo yapısı eksik
 
     // Belgeleri getir
     const { data: belgeData } = await supabase
@@ -265,10 +250,12 @@ export default function PanelPage() {
   }
 
   const handleDekontEkle = async () => {
-    if (!selectedStajyer || !dekontFormData.tarih || !dekontFormData.aciklama || !dekontFormData.tutar) {
-      alert('Tüm alanlar zorunludur!')
+    if (!selectedStajyer || !dekontFormData.tarih || !dekontFormData.ay) {
+      alert('Dekont tarihi ve ayı zorunludur!')
       return
     }
+
+    // Tutar alanı opsiyonel
 
     try {
       let dosyaUrl = null
@@ -279,33 +266,119 @@ export default function PanelPage() {
         dosyaUrl = `/uploads/dekontlar/${Date.now()}_${dekontFormData.dosya.name}`
       }
 
+      // Dekontlar tablosundaki mevcut kolonları kullan
+      const insertData: any = {
+        staj_id: selectedStajyer.staj_id,
+        odeme_tarihi: dekontFormData.tarih,
+        miktar: dekontFormData.tutar && dekontFormData.tutar.trim() !== '' ? parseFloat(dekontFormData.tutar) : null,
+        onay_durumu: 'beklemede',
+        ay: dekontFormData.ay
+      }
+
+      // Dosya kolonu varsa ekle - şimdilik kaldırıyoruz çünkü kolon adı belirsiz
+      // dekont_dosyas kolonu bulunamıyor hatası alıyoruz
+      if (dosyaUrl) {
+        // Olası kolon isimleri: dosya_url, file_url, document_url, dekont_dosyas
+        // insertData.dosya_url = dosyaUrl  // Gerçek kolon adı bulunduğunda açılacak
+      }
+
+      // Eğer aciklama alanı varsa ekle (tabloda göremiyoruz ama denemeye değer)
+      if (dekontFormData.aciklama) {
+        insertData.aciklama = dekontFormData.aciklama
+      }
+
       const { error } = await supabase
         .from('dekontlar')
-        .insert({
+        .insert(insertData)
+
+      if (error) {
+        console.error('Dekont ekleme hatası:', error)
+        console.error('Hata detayı:', error.message)
+        console.error('Gönderilen veri:', {
           staj_id: selectedStajyer.staj_id,
           ogrenci_id: selectedStajyer.id,
           isletme_id: isletme!.id,
           tarih: dekontFormData.tarih,
-          aciklama: dekontFormData.aciklama,
-          tutar: parseFloat(dekontFormData.tutar),
+          ay: dekontFormData.ay,
+          aciklama: dekontFormData.aciklama || null,
+          tutar: dekontFormData.tutar ? parseFloat(dekontFormData.tutar) : null,
           dosya_url: dosyaUrl,
           onay_durumu: 'beklemede'
         })
-
-      if (error) {
-        console.error('Dekont ekleme hatası:', error)
-        alert('Dekont eklenirken hata oluştu!')
+        alert(`Dekont eklenirken hata oluştu: ${error.message}`)
         return
       }
 
       alert('Dekont başarıyla eklendi!')
       setDekontModalOpen(false)
       setSelectedStajyer(null)
-      setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+      setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
       fetchData() // Veriyi yeniden yükle
     } catch (error) {
       console.error('Dekont ekleme hatası:', error)
       alert('Dekont eklenirken hata oluştu!')
+    }
+  }
+
+  // Dekont görüntüleme fonksiyonları
+  const handleDekontlarGoster = async (stajyer: Stajyer) => {
+    try {
+      const { data: dekontData } = await supabase
+        .from('dekontlar')
+        .select('*')
+        .eq('staj_id', stajyer.staj_id)
+        .order('created_at', { ascending: false })
+
+      console.log('Dekont verisi:', dekontData) // Debug için
+      if (dekontData) {
+        const formattedDekontlar = dekontData.map((dekont: any) => ({
+          id: dekont.id,
+          ogrenci_adi: `${stajyer.ad} ${stajyer.soyad}`,
+          miktar: dekont.miktar,
+          odeme_tarihi: dekont.odeme_tarihi,
+          onay_durumu: dekont.onay_durumu,
+          aciklama: '', // Tabloda açıklama alanı yok
+          dosya_url: dekont.dekont_dosyas || dekont.dosya_url || dekont.file_url || null, // Farklı dosya kolun adlarını dene
+          tarih: dekont.odeme_tarihi,
+          tutar: dekont.miktar,
+          ay: dekont.ay || ''
+        }))
+        setSelectedStajyerDekontlar(formattedDekontlar)
+        setSelectedStajyer(stajyer)
+        setDekontViewModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Dekont listesi alınırken hata:', error)
+      alert('Dekontlar yüklenirken hata oluştu!')
+    }
+  }
+
+  const handleDekontDetay = (dekont: Dekont) => {
+    setSelectedDekont(dekont)
+    setDekontDetailModalOpen(true)
+  }
+
+  const getOnayDurumuRenk = (durum: string) => {
+    switch (durum) {
+      case 'onaylandi':
+        return 'bg-green-100 text-green-800'
+      case 'reddedildi':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-yellow-100 text-yellow-800'
+    }
+  }
+
+  const getOnayDurumuText = (durum: string) => {
+    switch (durum) {
+      case 'onaylandi':
+        return 'Onaylandı'
+      case 'reddedildi':
+        return 'Reddedildi'
+      case 'beklemede':
+        return 'Beklemede'
+      default:
+        return 'Bekliyor'
     }
   }
 
@@ -374,19 +447,7 @@ export default function PanelPage() {
                     <span>Stajyerler</span>
                   </div>
                 </button>
-                <button
-                  onClick={() => setActiveTab('dekontlar')}
-                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-all duration-200 ${
-                    activeTab === 'dekontlar'
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    <span>Dekontlar</span>
-                  </div>
-                </button>
+
                 <button
                   onClick={() => setActiveTab('belgeler')}
                   className={`py-4 px-2 border-b-2 font-medium text-sm transition-all duration-200 ${
@@ -444,23 +505,34 @@ export default function PanelPage() {
                                 {new Date(stajyer.bitis_tarihi).toLocaleDateString('tr-TR')}
                               </p>
                             </div>
-                            <button
-                              onClick={() => {
-                                setSelectedStajyer(stajyer)
-                                setDekontFormData({ 
-                                  tarih: new Date().toISOString().split('T')[0], 
-                                  aciklama: '', 
-                                  tutar: '', 
-                                  dosya: null 
-                                })
-                                setDekontModalOpen(true)
-                              }}
-                              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md"
-                              title="Dekont yükle"
-                            >
-                              <Receipt className="h-4 w-4" />
-                              <span className="text-sm font-medium">Dekont Yükle</span>
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleDekontlarGoster(stajyer)}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                                title="Dekontları görüntüle"
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span className="text-sm font-medium">Dekontları Görüntüle</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedStajyer(stajyer)
+                                  setDekontFormData({ 
+                                    tarih: new Date().toISOString().split('T')[0], 
+                                    ay: '',
+                                    aciklama: '', 
+                                    tutar: '', 
+                                    dosya: null 
+                                  })
+                                  setDekontModalOpen(true)
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                                title="Dekont yükle"
+                              >
+                                <Receipt className="h-4 w-4" />
+                                <span className="text-sm font-medium">Dekont Yükle</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -473,89 +545,6 @@ export default function PanelPage() {
                     </div>
                     <h3 className="mt-4 text-lg font-medium text-gray-900">Stajyer Bulunamadı</h3>
                     <p className="mt-2 text-sm text-gray-500">Henüz aktif stajyeriniz bulunmuyor.</p>
-                  </div>
-                )}
-              </>
-            ) : activeTab === 'dekontlar' ? (
-              <>
-                <div className="px-4 py-6 border-b border-gray-200 sm:px-0">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900">Dekont Geçmişi</h2>
-                      <p className="mt-2 text-sm text-gray-600">
-                        Toplam <span className="font-semibold text-indigo-600">{dekontlar.length}</span> dekont
-                      </p>
-                    </div>
-                    {dekontlar.length > 0 && (
-                      <button
-                        onClick={() => router.push('/panel/dekont/yeni')}
-                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                      >
-                        <Upload className="h-5 w-5 mr-2" />
-                        Yeni Dekont Ekle
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {dekontlar.length > 0 ? (
-                  <div className="divide-y divide-gray-100 -mx-6 md:-mx-8">
-                    {dekontlar.map((dekont) => (
-                      <div key={dekont.id} className="px-6 md:px-8 py-6 hover:bg-gray-50 transition-colors duration-150">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="p-3 bg-purple-100 rounded-xl">
-                              <FileText className="h-6 w-6 text-purple-600" />
-                            </div>
-                            <div className="ml-4">
-                              <p className="text-base font-semibold text-gray-900">{dekont.ogrenci_adi}</p>
-                              <p className="text-sm text-gray-600 mt-1">
-                                {new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                                })}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-gray-900">
-                              {dekont.miktar.toLocaleString('tr-TR', {
-                                style: 'currency',
-                                currency: 'TRY',
-                              })}
-                            </p>
-                            <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mt-1 ${
-                                dekont.onay_durumu === 'onaylandi'
-                                  ? 'bg-green-100 text-green-800'
-                                  : dekont.onay_durumu === 'reddedildi'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}
-                            >
-                              {dekont.onay_durumu.charAt(0).toUpperCase() + dekont.onay_durumu.slice(1)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-16 text-center">
-                    <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center">
-                      <FileText className="h-10 w-10 text-gray-400" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900">Dekont Bulunamadı</h3>
-                    <p className="mt-2 text-sm text-gray-500">Sisteme henüz dekont yüklenmemiş.</p>
-                    <div className="mt-8">
-                      <button
-                        onClick={() => router.push('/panel/dekont/yeni')}
-                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                      >
-                        <Upload className="h-5 w-5 mr-2" />
-                        Yeni Dekont Ekle
-                      </button>
-                    </div>
                   </div>
                 )}
               </>
@@ -884,7 +873,7 @@ export default function PanelPage() {
         onClose={() => {
           setDekontModalOpen(false)
           setSelectedStajyer(null)
-          setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+          setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
         }}
         title={selectedStajyer ? `${selectedStajyer.ad} ${selectedStajyer.soyad} - Dekont Yükle` : 'Dekont Yükle'}
       >
@@ -916,21 +905,46 @@ export default function PanelPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Açıklama <span className="text-red-500">*</span>
+              Dekont Ayı <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={dekontFormData.ay}
+              onChange={(e) => setDekontFormData({...dekontFormData, ay: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              required
+            >
+              <option value="">Ay Seçiniz</option>
+              <option value="Ocak">Ocak</option>
+              <option value="Şubat">Şubat</option>
+              <option value="Mart">Mart</option>
+              <option value="Nisan">Nisan</option>
+              <option value="Mayıs">Mayıs</option>
+              <option value="Haziran">Haziran</option>
+              <option value="Temmuz">Temmuz</option>
+              <option value="Ağustos">Ağustos</option>
+              <option value="Eylül">Eylül</option>
+              <option value="Ekim">Ekim</option>
+              <option value="Kasım">Kasım</option>
+              <option value="Aralık">Aralık</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Açıklama
             </label>
             <textarea
               value={dekontFormData.aciklama}
               onChange={(e) => setDekontFormData({...dekontFormData, aciklama: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               rows={3}
-              placeholder="Dekont açıklamasını giriniz"
-              required
+              placeholder="Dekont açıklamasını giriniz (opsiyonel)"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tutar (₺) <span className="text-red-500">*</span>
+              Tutar (₺)
             </label>
             <input
               type="number"
@@ -938,8 +952,7 @@ export default function PanelPage() {
               value={dekontFormData.tutar}
               onChange={(e) => setDekontFormData({...dekontFormData, tutar: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              placeholder="0.00"
-              required
+              placeholder="0.00 (opsiyonel)"
             />
           </div>
 
@@ -972,7 +985,7 @@ export default function PanelPage() {
               onClick={() => {
                 setDekontModalOpen(false)
                 setSelectedStajyer(null)
-                setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+                setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
               }}
               className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
@@ -986,6 +999,209 @@ export default function PanelPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Dekont Görüntüleme Modal */}
+      <Modal 
+        isOpen={dekontViewModalOpen} 
+        onClose={() => {
+          setDekontViewModalOpen(false)
+          setSelectedStajyer(null)
+          setSelectedStajyerDekontlar([])
+        }}
+        title={selectedStajyer ? `${selectedStajyer.ad} ${selectedStajyer.soyad} - Dekontlar` : 'Dekontlar'}
+        size="lg"
+      >
+        <div className="space-y-4">
+          {selectedStajyer && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">Öğrenci Bilgileri</h3>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-700 font-medium">Ad Soyad:</span>
+                  <p className="text-blue-900">{selectedStajyer.ad} {selectedStajyer.soyad}</p>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium">Sınıf:</span>
+                  <p className="text-blue-900">{selectedStajyer.sinif}</p>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium">Alan:</span>
+                  <p className="text-blue-900">{selectedStajyer.alan}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-medium text-gray-900">
+              Dekont Listesi ({selectedStajyerDekontlar.length} adet)
+            </h4>
+          </div>
+
+          {selectedStajyerDekontlar.length > 0 ? (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {selectedStajyerDekontlar.map((dekont) => (
+                <div 
+                  key={dekont.id} 
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => handleDekontDetay(dekont)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <h5 className="font-medium text-gray-900">
+                            {new Date(dekont.tarih).toLocaleDateString('tr-TR', {
+                              day: 'numeric',
+                              month: 'long', 
+                              year: 'numeric'
+                            })}
+                          </h5>
+                          {dekont.ay && (
+                            <p className="text-xs text-blue-600 font-medium mt-1">
+                              {dekont.ay} Ayı
+                            </p>
+                          )}
+                        </div>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getOnayDurumuRenk(dekont.onay_durumu)}`}>
+                          {getOnayDurumuText(dekont.onay_durumu)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{dekont.aciklama}</p>
+                      <p className="text-lg font-bold text-green-600">
+                        {dekont.tutar ? dekont.tutar.toLocaleString('tr-TR', {
+                          style: 'currency',
+                          currency: 'TRY'
+                        }) : 'Tutar belirtilmemiş'}
+                      </p>
+                    </div>
+                    <div className="ml-4">
+                      <Eye className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Receipt className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz dekont yok</h3>
+              <p className="text-gray-500">Bu öğrenci için henüz dekont yüklenmemiş.</p>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Dekont Detay Modal */}
+      <Modal 
+        isOpen={dekontDetailModalOpen} 
+        onClose={() => {
+          setDekontDetailModalOpen(false)
+          setSelectedDekont(null)
+        }}
+        title="Dekont Detayları"
+        size="lg"
+      >
+        {selectedDekont && (
+          <div className="space-y-6">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Tarih:</span>
+                  <p className="text-gray-900 mt-1">
+                    {new Date(selectedDekont.tarih).toLocaleDateString('tr-TR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long', 
+                      year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Tutar:</span>
+                  <p className="text-2xl font-bold text-green-600 mt-1">
+                    {selectedDekont.tutar ? selectedDekont.tutar.toLocaleString('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY'
+                    }) : 'Tutar belirtilmemiş'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-sm font-medium text-gray-700">Onay Durumu:</span>
+              <div className="mt-2">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getOnayDurumuRenk(selectedDekont.onay_durumu)}`}>
+                  {getOnayDurumuText(selectedDekont.onay_durumu)}
+                </span>
+              </div>
+            </div>
+
+            {selectedDekont.aciklama && (
+              <div>
+                <span className="text-sm font-medium text-gray-700">Açıklama:</span>
+                <div className="bg-gray-50 rounded-lg p-3 mt-2">
+                  <p className="text-gray-900 whitespace-pre-wrap">{selectedDekont.aciklama}</p>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <span className="text-sm font-medium text-gray-700">Dekont Dosyası:</span>
+              <div className="bg-gray-50 rounded-lg p-4 mt-2">
+                {selectedDekont.dosya_url ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Receipt className="h-5 w-5 text-gray-400 mr-2" />
+                      <span className="text-sm text-gray-900">Dekont Belgesi</span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => window.open(selectedDekont.dosya_url, '_blank')}
+                        className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-all"
+                        title="Dosyayı görüntüle"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const link = document.createElement('a')
+                          link.href = selectedDekont.dosya_url!
+                          link.download = `dekont_${selectedDekont.id}.pdf`
+                          link.click()
+                        }}
+                        className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-all"
+                        title="Dosyayı indir"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Bu dekont için dosya yüklenmemiş</p>
+                    <p className="text-xs text-gray-400 mt-1">Dosya yükleme özelliği geliştirilmektedir</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={() => {
+                  setDekontDetailModalOpen(false)
+                  setSelectedDekont(null)
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )
