@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, Plus, Edit, Trash2, Loader, Save, User, Mail, Phone, Briefcase, ToggleLeft, ToggleRight, Key, Search, Filter, X } from 'lucide-react'
+import { Users, Plus, Edit, Trash2, Loader, Save, User, Mail, Phone, Briefcase, ToggleLeft, ToggleRight, Key, Search, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
@@ -32,6 +32,12 @@ export default function OgretmenYonetimiPage() {
   const [loading, setLoading] = useState(true)
   const [selectedAlan, setSelectedAlan] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(20)
+  const [paginatedData, setPaginatedData] = useState<Ogretmen[]>([])
+  const [totalPages, setTotalPages] = useState(0)
   
   // Modal states
   const [addModal, setAddModal] = useState(false)
@@ -106,7 +112,42 @@ export default function OgretmenYonetimiPage() {
     }
 
     setFilteredOgretmenler(filtered)
+    setCurrentPage(1) // Reset to first page when filters change
   }, [ogretmenler, selectedAlan, searchQuery])
+
+  // Sayfalama fonksiyonu
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const paginated = filteredOgretmenler.slice(startIndex, endIndex)
+    
+    setPaginatedData(paginated)
+    setTotalPages(Math.ceil(filteredOgretmenler.length / pageSize))
+  }, [filteredOgretmenler, currentPage, pageSize])
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handleFirstPage = () => {
+    setCurrentPage(1)
+  }
+
+  const handleLastPage = () => {
+    setCurrentPage(totalPages)
+  }
 
   const generateRandomPin = () => {
     return Math.floor(1000 + Math.random() * 9000).toString()
@@ -393,16 +434,16 @@ export default function OgretmenYonetimiPage() {
                 </tr>
               </thead>
               <tbody className="bg-white/60 divide-y divide-gray-200">
-                {filteredOgretmenler.length === 0 ? (
+                {paginatedData.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <Users className="h-12 w-12 text-gray-400 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
-                          {ogretmenler.length === 0 ? 'Henüz öğretmen eklenmemiş' : 'Filtre kriterlerinize uygun öğretmen bulunamadı'}
+                          {filteredOgretmenler.length === 0 ? 'Henüz öğretmen eklenmemiş' : 'Filtre kriterlerinize uygun öğretmen bulunamadı'}
                         </h3>
                         <p className="text-gray-500 text-center max-w-md">
-                          {ogretmenler.length === 0 
+                          {filteredOgretmenler.length === 0 
                             ? 'Sisteme ilk öğretmeninizi eklemek için "Yeni Öğretmen Ekle" butonunu kullanın.'
                             : 'Farklı arama terimleri deneyin veya filtreleri temizleyin.'
                           }
@@ -423,7 +464,7 @@ export default function OgretmenYonetimiPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredOgretmenler.map((ogretmen) => (
+                  paginatedData.map((ogretmen) => (
                   <tr key={ogretmen.id} className="hover:bg-indigo-50/50 transition-colors duration-200">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
@@ -504,6 +545,129 @@ export default function OgretmenYonetimiPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {filteredOgretmenler.length > 0 && totalPages > 1 && (
+            <div className="bg-white/60 px-6 py-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                {/* Results Info */}
+                <div className="text-sm text-gray-600">
+                  Toplam <span className="font-medium text-gray-900">{filteredOgretmenler.length}</span> kayıttan{' '}
+                  <span className="font-medium text-gray-900">
+                    {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, filteredOgretmenler.length)}
+                  </span>{' '}
+                  arası gösteriliyor
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="flex items-center space-x-1">
+                  {/* First Page */}
+                  <button
+                    onClick={handleFirstPage}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    title="İlk sayfa"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </button>
+
+                  {/* Previous Page */}
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    title="Önceki sayfa"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center space-x-1 mx-2">
+                    {(() => {
+                      const pages = []
+                      const startPage = Math.max(1, currentPage - 2)
+                      const endPage = Math.min(totalPages, currentPage + 2)
+
+                      // First page if not in range
+                      if (startPage > 1) {
+                        pages.push(
+                          <button
+                            key={1}
+                            onClick={() => handlePageChange(1)}
+                            className="px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200"
+                          >
+                            1
+                          </button>
+                        )
+                        if (startPage > 2) {
+                          pages.push(
+                            <span key="start-ellipsis" className="px-2 text-gray-400">...</span>
+                          )
+                        }
+                      }
+
+                      // Current range
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => handlePageChange(i)}
+                            className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                              i === currentPage
+                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm'
+                                : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        )
+                      }
+
+                      // Last page if not in range
+                      if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                          pages.push(
+                            <span key="end-ellipsis" className="px-2 text-gray-400">...</span>
+                          )
+                        }
+                        pages.push(
+                          <button
+                            key={totalPages}
+                            onClick={() => handlePageChange(totalPages)}
+                            className="px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200"
+                          >
+                            {totalPages}
+                          </button>
+                        )
+                      }
+
+                      return pages
+                    })()}
+                  </div>
+
+                  {/* Next Page */}
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    title="Sonraki sayfa"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+
+                  {/* Last Page */}
+                  <button
+                    onClick={handleLastPage}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    title="Son sayfa"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
