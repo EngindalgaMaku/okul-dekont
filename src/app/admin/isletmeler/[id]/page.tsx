@@ -28,7 +28,8 @@ import {
   Upload,
   Download,
   Eye,
-  File
+  File,
+  AlertCircle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
@@ -132,6 +133,7 @@ export default function IsletmeDetayPage() {
   const [ogrenciModalOpen, setOgrenciModalOpen] = useState(false)
   const [fesihModalOpen, setFesihModalOpen] = useState(false)
   const [belgeModalOpen, setBelgeModalOpen] = useState(false)
+  const [dekontModalOpen, setDekontModalOpen] = useState(false)
   const [alanlar, setAlanlar] = useState<Alan[]>([])
   const [belgeler, setBelgeler] = useState<Belge[]>([])
   const [dekontlar, setDekontlar] = useState<Dekont[]>([])
@@ -160,6 +162,13 @@ export default function IsletmeDetayPage() {
     ad: '',
     tur: 'sozlesme',
     customTur: '',
+    dosya: null as File | null
+  })
+
+  const [dekontFormData, setDekontFormData] = useState({
+    tarih: '',
+    aciklama: '',
+    tutar: '',
     dosya: null as File | null
   })
 
@@ -552,6 +561,51 @@ export default function IsletmeDetayPage() {
     }
   }
 
+  const handleDekontEkle = async () => {
+    if (!selectedStaj || !dekontFormData.tarih || !dekontFormData.aciklama || !dekontFormData.tutar) {
+      alert('Tüm alanlar zorunludur!')
+      return
+    }
+
+    try {
+      let dosyaUrl = null
+      
+      // Dosya varsa yükle
+      if (dekontFormData.dosya) {
+        // Simülasyon - gerçek uygulamada Supabase Storage kullanılacak
+        dosyaUrl = `/uploads/dekontlar/${Date.now()}_${dekontFormData.dosya.name}`
+      }
+
+      const { error } = await supabase
+        .from('dekontlar')
+        .insert({
+          staj_id: selectedStaj.id,
+          ogrenci_id: selectedStaj.ogrenci_id,
+          isletme_id: Number(isletmeId),
+          tarih: dekontFormData.tarih,
+          aciklama: dekontFormData.aciklama,
+          tutar: parseFloat(dekontFormData.tutar),
+          dosya_url: dosyaUrl,
+          onay_durumu: 'beklemede'
+        })
+
+      if (error) {
+        console.error('Dekont ekleme hatası:', error)
+        alert('Dekont eklenirken hata oluştu!')
+        return
+      }
+
+      alert('Dekont başarıyla eklendi!')
+      setDekontModalOpen(false)
+      setSelectedStaj(null)
+      setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+      fetchDekontlar()
+    } catch (error) {
+      console.error('Dekont ekleme hatası:', error)
+      alert('Dekont eklenirken hata oluştu!')
+    }
+  }
+
   const tabs = [
     { 
       id: 'temel', 
@@ -579,11 +633,6 @@ export default function IsletmeDetayPage() {
       id: 'belgeler', 
       name: 'Belgeler', 
       icon: FileText
-    },
-    { 
-      id: 'dekontlar', 
-      name: 'Dekontlar', 
-      icon: Receipt
     }
   ]
 
@@ -752,115 +801,22 @@ export default function IsletmeDetayPage() {
             )}
             
             {activeTab === 'ogrenciler' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">Stajyer Öğrenciler</h3>
-                    <p className="text-sm text-gray-600">Toplam {stajlar.length} aktif stajyer</p>
-                  </div>
-                  <button 
-                    onClick={() => setOgrenciModalOpen(true)}
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Öğrenci Ekle
-                  </button>
-                </div>
-
-                {stajlar.length > 0 ? (
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Öğrenci
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Alan
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Staj Dönemi
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Durum
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            İşlemler
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {stajlar.map((staj: any) => (
-                          <tr key={staj.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
-                                  <User className="h-5 w-5 text-indigo-600" />
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {staj.ogrenciler.ad} {staj.ogrenciler.soyad}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    No: {staj.ogrenciler.no} - {staj.ogrenciler.sinif}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {staj.ogrenciler.alanlar.ad}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              <div>
-                                <div>{new Date(staj.baslangic_tarihi).toLocaleDateString('tr-TR')}</div>
-                                <div className="text-xs text-gray-500">
-                                  - {new Date(staj.bitis_tarihi).toLocaleDateString('tr-TR')}
-                                </div>
-                                {staj.fesih_tarihi && (
-                                  <div className="text-xs text-red-500">
-                                    Fesih: {new Date(staj.fesih_tarihi).toLocaleDateString('tr-TR')}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                staj.durum === 'aktif' ? 'bg-green-100 text-green-800' :
-                                staj.durum === 'tamamlandi' ? 'bg-blue-100 text-blue-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {staj.durum === 'aktif' ? 'Aktif' :
-                                 staj.durum === 'tamamlandi' ? 'Tamamlandı' : 'Feshedildi'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              {staj.durum === 'aktif' && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedStaj(staj)
-                                    setFesihModalOpen(true)
-                                  }}
-                                  className="text-red-600 hover:text-red-900 ml-2"
-                                >
-                                  Feshet
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <GraduationCap className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Henüz stajyer yok</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Bu işletmede aktif stajyer bulunmuyor.
-                    </p>
-                  </div>
-                )}
-              </div>
+              <OgrencilerPanel 
+                stajlar={stajlar}
+                isletmeId={Number(isletmeId)}
+                onRefresh={fetchStajlar}
+                onOgrenciEkle={() => setOgrenciModalOpen(true)}
+                onDekontEkle={(staj) => {
+                  setSelectedStaj(staj)
+                  setDekontFormData({ 
+                    tarih: new Date().toISOString().split('T')[0], 
+                    aciklama: '', 
+                    tutar: '', 
+                    dosya: null 
+                  })
+                  setDekontModalOpen(true)
+                }}
+              />
             )}
             
             {activeTab === 'koordinatorler' && (
@@ -883,14 +839,6 @@ export default function IsletmeDetayPage() {
                 isletmeId={Number(isletmeId)}
                 onRefresh={fetchBelgeler}
                 onBelgeEkle={() => setBelgeModalOpen(true)}
-              />
-            )}
-            
-            {activeTab === 'dekontlar' && (
-              <DekontlarPanel 
-                dekontlar={dekontlar}
-                isletmeId={Number(isletmeId)}
-                onRefresh={fetchDekontlar}
               />
             )}
           </div>
@@ -1152,6 +1100,113 @@ export default function IsletmeDetayPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Dekont Ekleme Modal */}
+      <Modal 
+        isOpen={dekontModalOpen} 
+        onClose={() => {
+          setDekontModalOpen(false)
+          setSelectedStaj(null)
+          setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+        }}
+        title={selectedStaj ? `${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} - Dekont Yükle` : 'Dekont Yükle'}
+      >
+        <div className="space-y-6">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-green-800">
+              <strong>Öğrenci:</strong> {selectedStaj ? `${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} (${selectedStaj.ogrenciler.no})` : ''}
+            </p>
+            <p className="text-sm text-green-800">
+              <strong>Alan:</strong> {selectedStaj ? selectedStaj.ogrenciler.alanlar.ad : ''}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dekont Tarihi <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={dekontFormData.tarih}
+              onChange={(e) => setDekontFormData({...dekontFormData, tarih: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Açıklama <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={dekontFormData.aciklama}
+              onChange={(e) => setDekontFormData({...dekontFormData, aciklama: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              rows={3}
+              placeholder="Dekont açıklamasını giriniz"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tutar (₺) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={dekontFormData.tutar}
+              onChange={(e) => setDekontFormData({...dekontFormData, tutar: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              placeholder="0.00"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dekont Dosyası (Opsiyonel)
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
+              <input
+                type="file"
+                id="dekont-dosya"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setDekontFormData({...dekontFormData, dosya: e.target.files?.[0] || null})}
+                className="hidden"
+              />
+              <label htmlFor="dekont-dosya" className="cursor-pointer">
+                <Receipt className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">
+                  {dekontFormData.dosya ? dekontFormData.dosya.name : 'Dekont dosyası seçmek için tıklayın'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, JPG, PNG formatları desteklenir
+                </p>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={() => {
+                setDekontModalOpen(false)
+                setSelectedStaj(null)
+                setDekontFormData({ tarih: '', aciklama: '', tutar: '', dosya: null })
+              }}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleDekontEkle}
+              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200"
+            >
+              Dekont Ekle
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -1263,76 +1318,6 @@ function BelgelerPanel({
   )
 }
 
-// Dekontlar Paneli
-function DekontlarPanel({ 
-  dekontlar, 
-  isletmeId, 
-  onRefresh 
-}: { 
-  dekontlar: Dekont[]
-  isletmeId: number
-  onRefresh: () => void
-}) {
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900">Dekontlar</h3>
-          <p className="text-sm text-gray-600">Toplam {dekontlar.length} dekont kaydı</p>
-        </div>
-        <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200">
-          <Plus className="h-4 w-4 mr-2" />
-          Dekont Ekle
-        </button>
-      </div>
-
-      {dekontlar.length > 0 ? (
-        <div className="space-y-4">
-          {dekontlar.map((dekont) => (
-            <div key={dekont.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center flex-1">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-4">
-                    <Receipt className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{dekont.aciklama}</h4>
-                    <div className="flex items-center space-x-4 mt-1">
-                      <span className="text-sm text-gray-500">
-                        {new Date(dekont.tarih).toLocaleDateString('tr-TR')}
-                      </span>
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        ₺{dekont.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-all">
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz dekont yok</h3>
-          <p className="text-gray-600 mb-6">Bu işletme için henüz dekont kaydı bulunmuyor.</p>
-          <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200">
-            <Plus className="h-4 w-4 mr-2" />
-            İlk Dekontun Ekle
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // Temel Bilgiler Paneli
 function TemelBilgilerPanel({ 
@@ -1482,24 +1467,185 @@ function TemelBilgilerPanel({
   )
 }
 
-// Öğrenciler Paneli
+// Öğrenciler Paneli  
 function OgrencilerPanel({ 
-  ogrenciler, 
+  stajlar, 
   isletmeId, 
   onRefresh,
-  onOgrenciEkle 
+  onOgrenciEkle,
+  onDekontEkle
 }: { 
-  ogrenciler: Ogrenci[]
+  stajlar: Staj[]
   isletmeId: number
   onRefresh: () => void
   onOgrenciEkle: () => void
+  onDekontEkle: (staj: Staj) => void
 }) {
+  const [stajDuzenleModalOpen, setStajDuzenleModalOpen] = useState(false)
+  const [fesihModalOpen, setFesihModalOpen] = useState(false)
+  const [selectedStaj, setSelectedStaj] = useState<Staj | null>(null)
+  const [stajDuzenleFormData, setStajDuzenleFormData] = useState({
+    baslangic_tarihi: '',
+    bitis_tarihi: ''
+  })
+  const [fesihFormData, setFesihFormData] = useState({
+    fesih_tarihi: ''
+  })
+
+  const handleStajDuzenle = async () => {
+    if (!selectedStaj) return
+
+    try {
+      const { error } = await supabase
+        .from('stajlar')
+        .update({ 
+          baslangic_tarihi: stajDuzenleFormData.baslangic_tarihi,
+          bitis_tarihi: stajDuzenleFormData.bitis_tarihi
+        })
+        .eq('id', selectedStaj.id)
+
+      if (error) {
+        console.error('Staj düzenleme hatası:', error)
+        alert('Staj düzenlenirken hata oluştu!')
+        return
+      }
+
+      alert(`${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} öğrencisinin staj tarihleri başarıyla güncellendi!`)
+      setStajDuzenleModalOpen(false)
+      setSelectedStaj(null)
+      setStajDuzenleFormData({ baslangic_tarihi: '', bitis_tarihi: '' })
+      onRefresh()
+    } catch (error) {
+      console.error('Staj düzenleme hatası:', error)
+      alert('Staj düzenlenirken hata oluştu!')
+    }
+  }
+
+  const handleFesihSubmit = async () => {
+    if (!selectedStaj) return
+
+    try {
+      const { error } = await supabase
+        .from('stajlar')
+        .update({ 
+          fesih_tarihi: fesihFormData.fesih_tarihi,
+          durum: 'feshedildi'
+        })
+        .eq('id', selectedStaj.id)
+
+      if (error) {
+        console.error('Fesih hatası:', error)
+        alert('Fesih işlemi sırasında hata oluştu!')
+        return
+      }
+
+      alert('Staj başarıyla feshedildi!')
+      setFesihModalOpen(false)
+      setSelectedStaj(null)
+      setFesihFormData({ fesih_tarihi: '' })
+      onRefresh()
+    } catch (error) {
+      console.error('Fesih hatası:', error)
+      alert('Fesih işlemi sırasında hata oluştu!')
+    }
+  }
+
+  const handleStajSil = async (stajId: number, ogrenciAd: string) => {
+    if (!confirm(`${ogrenciAd} öğrencisinin stajını kalıcı olarak silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+      return
+    }
+
+    try {
+      // Önce staj ile ilgili dekontları kontrol et
+      const { data: dekontlar, error: dekontError } = await supabase
+        .from('dekontlar')
+        .select('id')
+        .eq('staj_id', stajId)
+
+      if (dekontError) {
+        console.error('Dekont kontrol hatası:', dekontError)
+        alert('Dekont kontrolü sırasında hata oluştu!')
+        return
+      }
+
+      if (dekontlar && dekontlar.length > 0) {
+        const silDekont = confirm(`Bu stajın ${dekontlar.length} adet dekont kaydı var. Bunları da silmek istediğinizden emin misiniz?`)
+        if (!silDekont) return
+
+        // Dekontları sil
+        const { error: dekontSilError } = await supabase
+          .from('dekontlar')
+          .delete()
+          .eq('staj_id', stajId)
+
+        if (dekontSilError) {
+          console.error('Dekont silme hatası:', dekontSilError)
+          alert('Dekont silme sırasında hata oluştu!')
+          return
+        }
+      }
+
+      // Stajı sil
+      const { error } = await supabase
+        .from('stajlar')
+        .delete()
+        .eq('id', stajId)
+
+      if (error) {
+        console.error('Staj silme hatası:', error)
+        alert('Staj silinirken hata oluştu: ' + error.message)
+        return
+      }
+
+      alert('Staj ve ilgili kayıtlar başarıyla silindi!')
+      onRefresh()
+    } catch (error) {
+      console.error('Staj silme hatası:', error)
+      alert('Staj silinirken hata oluştu!')
+    }
+  }
+
+
+
+
+
+  const getStatusBadge = (durum: string, fesihTarihi?: string) => {
+    if (fesihTarihi) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          Feshedildi
+        </span>
+      )
+    }
+    
+    switch (durum) {
+      case 'aktif':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            Aktif
+          </span>
+        )
+      case 'tamamlandi':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            Tamamlandı
+          </span>
+        )
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            {durum}
+          </span>
+        )
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-medium text-gray-900">Staj Yapan Öğrenciler</h3>
-          <p className="text-sm text-gray-600">Toplam {ogrenciler.length} öğrenci bu işletmede staj yapıyor</p>
+          <p className="text-sm text-gray-600">Toplam {stajlar.length} öğrenci bu işletmede staj yapıyor</p>
         </div>
         <button 
           onClick={onOgrenciEkle}
@@ -1510,31 +1656,119 @@ function OgrencilerPanel({
         </button>
       </div>
 
-      {ogrenciler.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ogrenciler.map((ogrenci) => (
-            <div key={ogrenci.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center mb-2">
-                    <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
-                      <GraduationCap className="h-4 w-4 text-indigo-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">{ogrenci.ad} {ogrenci.soyad}</h4>
-                      <p className="text-sm text-gray-500">No: {ogrenci.no}</p>
-                    </div>
-                  </div>
-                  <div className="text-xs text-indigo-600 font-medium">
-                    {ogrenci.alanlar.ad}
-                  </div>
-                </div>
-                <button className="text-gray-400 hover:text-red-500 transition-colors">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+      {stajlar.length > 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Öğrenci
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Alan
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Staj Dönemi
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Durum
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    İşlemler
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {stajlar.map((staj) => (
+                  <tr key={staj.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
+                          <GraduationCap className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {staj.ogrenciler.ad} {staj.ogrenciler.soyad}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            No: {staj.ogrenciler.no} • {staj.ogrenciler.sinif}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{staj.ogrenciler.alanlar.ad}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {new Date(staj.baslangic_tarihi).toLocaleDateString('tr-TR')}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {new Date(staj.bitis_tarihi).toLocaleDateString('tr-TR')}
+                      </div>
+                      {staj.fesih_tarihi && (
+                        <div className="text-sm text-red-600">
+                          Fesih: {new Date(staj.fesih_tarihi).toLocaleDateString('tr-TR')}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(staj.durum, staj.fesih_tarihi)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => onDekontEkle(staj)}
+                          className="text-green-600 hover:text-green-900 p-1 hover:bg-green-50 rounded transition-all"
+                          title="Dekont yükle"
+                        >
+                          <Receipt className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedStaj(staj)
+                            setStajDuzenleFormData({
+                              baslangic_tarihi: staj.baslangic_tarihi,
+                              bitis_tarihi: staj.bitis_tarihi
+                            })
+                            setStajDuzenleModalOpen(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded transition-all"
+                          title="Staj tarihlerini düzenle"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        
+                        {staj.durum === 'aktif' && !staj.fesih_tarihi && (
+                          <button
+                            onClick={() => {
+                              setSelectedStaj(staj)
+                              setFesihFormData({ fesih_tarihi: new Date().toISOString().split('T')[0] })
+                              setFesihModalOpen(true)
+                            }}
+                            className="text-orange-600 hover:text-orange-900 p-1 hover:bg-orange-50 rounded transition-all"
+                            title="Stajı feshet"
+                          >
+                            <AlertCircle className="h-4 w-4" />
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => handleStajSil(staj.id, `${staj.ogrenciler.ad} ${staj.ogrenciler.soyad}`)}
+                          className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-all"
+                          title="Stajı sil"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-12">
@@ -1550,6 +1784,133 @@ function OgrencilerPanel({
           </button>
         </div>
       )}
+
+      {/* Staj Düzenleme Modal */}
+      <Modal
+        isOpen={stajDuzenleModalOpen}
+        onClose={() => {
+          setStajDuzenleModalOpen(false)
+          setSelectedStaj(null)
+          setStajDuzenleFormData({ baslangic_tarihi: '', bitis_tarihi: '' })
+        }}
+        title={selectedStaj ? `${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} - Staj Tarihlerini Düzenle` : 'Staj Düzenle'}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Başlangıç Tarihi
+            </label>
+            <input
+              type="date"
+              value={stajDuzenleFormData.baslangic_tarihi}
+              onChange={(e) => setStajDuzenleFormData({ 
+                ...stajDuzenleFormData, 
+                baslangic_tarihi: e.target.value 
+              })}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Bitiş Tarihi
+            </label>
+            <input
+              type="date"
+              value={stajDuzenleFormData.bitis_tarihi}
+              onChange={(e) => setStajDuzenleFormData({ 
+                ...stajDuzenleFormData, 
+                bitis_tarihi: e.target.value 
+              })}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setStajDuzenleModalOpen(false)
+                setSelectedStaj(null)
+                setStajDuzenleFormData({ baslangic_tarihi: '', bitis_tarihi: '' })
+              }}
+              className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all"
+            >
+              İptal
+            </button>
+            <button
+              type="button"
+              onClick={handleStajDuzenle}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+            >
+              Güncelle
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Fesih Modal */}
+      <Modal
+        isOpen={fesihModalOpen}
+        onClose={() => {
+          setFesihModalOpen(false)
+          setSelectedStaj(null)
+          setFesihFormData({ fesih_tarihi: '' })
+        }}
+        title={selectedStaj ? `${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} - Stajı Feshet` : 'Stajı Feshet'}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-orange-600 mr-2" />
+              <p className="text-orange-800 text-sm">
+                Bu staj feshedilecek. Bu işlem geri alınamaz!
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Fesih Tarihi
+            </label>
+            <input
+              type="date"
+              value={fesihFormData.fesih_tarihi}
+              onChange={(e) => setFesihFormData({ 
+                ...fesihFormData, 
+                fesih_tarihi: e.target.value 
+              })}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              required
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setFesihModalOpen(false)
+                setSelectedStaj(null)
+                setFesihFormData({ fesih_tarihi: '' })
+              }}
+              className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all"
+            >
+              İptal
+            </button>
+            <button
+              type="button"
+              onClick={handleFesihSubmit}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all"
+            >
+              Feshet
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

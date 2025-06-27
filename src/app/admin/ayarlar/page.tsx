@@ -23,7 +23,8 @@ import {
   Clock,
   User,
   Building,
-  RefreshCw
+  RefreshCw,
+  ChevronDown
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
@@ -475,11 +476,32 @@ export default function AyarlarPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{kategori.baslik}</h3>
                 <p className="text-sm text-gray-600 mb-4">{kategori.aciklama}</p>
                 {!kategori.gelecek && kategori.id === 'egitim' && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      {egitimYillari.length} eğitim yılı
-                    </span>
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400 uppercase tracking-wider">Aktif Dönem</span>
+                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                    </div>
+                    <div className="relative">
+                      <select 
+                        disabled
+                        value={egitimYillari.find(y => y.aktif)?.yil || ''}
+                        className="w-full text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 pr-8 cursor-not-allowed focus:outline-none"
+                      >
+                        {egitimYillari.find(y => y.aktif) ? (
+                          <option value={egitimYillari.find(y => y.aktif)?.yil}>
+                            {egitimYillari.find(y => y.aktif)?.yil}
+                          </option>
+                        ) : (
+                          <option value="">Aktif dönem yok</option>
+                        )}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Toplam {egitimYillari.length} dönem
+                    </div>
                   </div>
                 )}
                 {!kategori.gelecek && kategori.id === 'guvenlik' && (
