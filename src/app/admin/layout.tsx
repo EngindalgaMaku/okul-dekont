@@ -30,12 +30,40 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ')
 }
 
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    if (media.matches !== matches) {
+      setMatches(media.matches)
+    }
+    const listener = () => setMatches(media.matches)
+    media.addListener(listener)
+    return () => media.removeListener(listener)
+  }, [matches, query])
+
+  return matches
+}
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [isAuth, setIsAuth] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
+  
+  // Tablet ve daha küçük ekranlar için media query
+  const isTabletOrSmaller = useMediaQuery('(max-width: 1279px)')
+
+  // Tablet/mobil cihazlarda sidebar'ı otomatik küçült
+  useEffect(() => {
+    if (isTabletOrSmaller) {
+      setDesktopSidebarOpen(false)
+    } else {
+      setDesktopSidebarOpen(true)
+    }
+  }, [isTabletOrSmaller])
 
   useEffect(() => {
     const authStatus = sessionStorage.getItem('admin-auth')
@@ -65,7 +93,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <>
       <div>
         <Transition.Root show={sidebarOpen} as={Fragment}>
-          <Dialog as="div" className="relative z-40 md:hidden" onClose={setSidebarOpen}>
+          <Dialog as="div" className="relative z-40 lg:hidden" onClose={setSidebarOpen}>
             <Transition.Child
               as={Fragment}
               enter="transition-opacity ease-linear duration-300"
@@ -149,10 +177,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </Dialog>
         </Transition.Root>
 
-        {/* Static sidebar for desktop */}
+        {/* Static sidebar for desktop and tablet */}
         <div className={classNames(
-          "hidden md:flex md:flex-col md:fixed md:inset-y-0 transition-all duration-300",
-          desktopSidebarOpen ? "md:w-64" : "md:w-16"
+          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 transition-all duration-300",
+          desktopSidebarOpen ? "lg:w-64" : "lg:w-16"
         )}>
           <div className="flex flex-col flex-grow border-r border-gray-200 pt-5 bg-white overflow-y-auto shadow-lg">
             <div className={classNames(
@@ -236,9 +264,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         <div className={classNames(
           "flex flex-col flex-1 bg-gray-50 min-h-screen transition-all duration-300",
-          desktopSidebarOpen ? "md:pl-64" : "md:pl-16"
+          desktopSidebarOpen ? "lg:pl-64" : "lg:pl-16"
         )}>
-          <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-white shadow-sm">
+          <div className="sticky top-0 z-10 lg:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-white shadow-sm">
             <button
               type="button"
               className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
