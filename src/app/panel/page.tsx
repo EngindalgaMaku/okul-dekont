@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Users, FileText, LogOut, User, Bell, Upload, Plus, Download, Eye, Search, Filter, Receipt } from 'lucide-react'
+import { Building2, Users, FileText, LogOut, User, Upload, Plus, Download, Eye, Search, Filter, Receipt } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
 import Modal from '@/components/ui/Modal'
@@ -409,13 +409,7 @@ export default function PanelPage() {
                 </div>
               </div>
               <div className="flex items-center gap-6">
-                <div className="text-right bg-white/10 rounded-xl px-4 py-2 backdrop-blur-sm">
-                  <p className="text-sm font-medium text-white">{okulAdi}</p>
-                  <p className="text-xs text-indigo-100">{egitimYili} Eğitim-Öğretim Yılı</p>
-                </div>
-                <button className="p-3 text-indigo-200 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-200">
-                  <Bell className="h-6 w-6" />
-                </button>
+
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 text-indigo-100 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all duration-200"
@@ -485,7 +479,7 @@ export default function PanelPage() {
                   <div className="divide-y divide-gray-100 -mx-6 md:-mx-8">
                     {stajyerler.map((stajyer) => (
                       <div key={stajyer.id} className="px-6 md:px-8 py-6 hover:bg-gray-50 transition-colors duration-150">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                           <div className="flex items-center">
                             <div className="p-3 bg-indigo-100 rounded-xl">
                               <User className="h-6 w-6 text-indigo-600" />
@@ -497,18 +491,18 @@ export default function PanelPage() {
                               <p className="text-sm text-gray-600 mt-1">{stajyer.alan}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                            <div className="text-left sm:text-right">
                               <p className="text-sm font-medium text-gray-900">Sınıf: {stajyer.sinif}</p>
                               <p className="text-xs text-gray-500 mt-1">
                                 {new Date(stajyer.baslangic_tarihi).toLocaleDateString('tr-TR')} -{' '}
                                 {new Date(stajyer.bitis_tarihi).toLocaleDateString('tr-TR')}
                               </p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2">
                               <button
                                 onClick={() => handleDekontlarGoster(stajyer)}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md"
                                 title="Dekontları görüntüle"
                               >
                                 <Eye className="h-4 w-4" />
@@ -526,7 +520,7 @@ export default function PanelPage() {
                                   })
                                   setDekontModalOpen(true)
                                 }}
-                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md"
                                 title="Dekont yükle"
                               >
                                 <Receipt className="h-4 w-4" />

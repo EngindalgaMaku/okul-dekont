@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { GraduationCap, Users, FileText, LogOut, Building2, Bell, Upload, Eye, Filter, CheckCircle, XCircle, Clock, Calendar, CreditCard, User, Search } from 'lucide-react'
+import { GraduationCap, Users, FileText, LogOut, Building2, Upload, Eye, Filter, CheckCircle, XCircle, Clock, Calendar, CreditCard, User, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
 import Modal from '@/components/ui/Modal'
@@ -307,13 +307,6 @@ export default function OgretmenPage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{okulAdi}</p>
-                <p className="text-xs text-gray-500">{egitimYili} Eğitim-Öğretim Yılı</p>
-              </div>
-              <button className="p-2 text-gray-400 hover:text-gray-500">
-                <Bell className="h-6 w-6" />
-              </button>
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 text-gray-700 hover:text-gray-900"

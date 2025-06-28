@@ -448,16 +448,6 @@ export default function IsletmeDekontPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex items-center gap-3">
-            <Building2 className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">İşletme Dekont Sistemi</h1>
-              <p className="text-gray-600">Hüsniye Özdilek Mesleki ve Teknik Anadolu Lisesi</p>
-            </div>
-          </div>
-        </div>
 
         {/* Step 1: İşletme Seçimi - Mobil Uyumlu */}
         {step === 1 && (
