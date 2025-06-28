@@ -120,69 +120,69 @@ export default function OgretmenLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-3 sm:p-4">
       <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
+        {/* Header - Mobil Uyumlu */}
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex justify-center mb-3 sm:mb-4">
             <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg">
-              <GraduationCap className="h-8 w-8 text-white" />
+              <GraduationCap className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Öğretmen Girişi
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm sm:text-base text-gray-600 mt-2 px-2">
             Koordinatörlük yaptığınız işletmeleri yönetmek için giriş yapın
           </p>
         </div>
 
-        {/* Login Form */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border border-blue-100 p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Ad */}
+        {/* Login Form - Mobil Uyumlu */}
+        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border border-blue-100 p-6 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+            {/* Ad - Mobil Uyumlu */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Adınız
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 <input
                   type="text"
                   value={formData.ad}
                   onChange={(e) => setFormData(prev => ({ ...prev, ad: e.target.value }))}
-                  className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="pl-9 sm:pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm sm:text-base"
                   placeholder="Adınızı girin"
                   required
                 />
               </div>
             </div>
 
-            {/* Soyad */}
+            {/* Soyad - Mobil Uyumlu */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Soyadınız
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 <input
                   type="text"
                   value={formData.soyad}
                   onChange={(e) => setFormData(prev => ({ ...prev, soyad: e.target.value }))}
-                  className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="pl-9 sm:pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm sm:text-base"
                   placeholder="Soyadınızı girin"
                   required
                 />
               </div>
             </div>
 
-            {/* PIN */}
+            {/* PIN - Mobil Uyumlu */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 PIN Kodunuz
               </label>
               <div className="relative">
-                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 <input
                   type={showPin ? "text" : "password"}
                   value={formData.pin}
@@ -190,7 +190,7 @@ export default function OgretmenLoginPage() {
                     const value = e.target.value.replace(/\D/g, '').slice(0, 4)
                     setFormData(prev => ({ ...prev, pin: value }))
                   }}
-                  className="pl-10 pr-12 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-mono"
+                  className="pl-9 sm:pl-10 pr-11 sm:pr-12 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-mono text-sm sm:text-base"
                   placeholder="0000"
                   maxLength={4}
                   required
@@ -200,7 +200,7 @@ export default function OgretmenLoginPage() {
                   onClick={() => setShowPin(!showPin)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPin ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -208,36 +208,37 @@ export default function OgretmenLoginPage() {
               </p>
             </div>
 
-            {/* Error Message */}
+            {/* Error Message - Mobil Uyumlu */}
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 text-sm">{error}</p>
+                <p className="text-red-700 text-xs sm:text-sm">{error}</p>
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Submit Button - Mobil Uyumlu */}
             <button
               type="submit"
               disabled={loading || !formData.ad.trim() || !formData.soyad.trim() || !formData.pin.trim()}
-              className="w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent rounded-xl shadow-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200"
+              className="w-full inline-flex items-center justify-center px-4 sm:px-6 py-3 text-sm sm:text-base font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent rounded-xl shadow-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200"
             >
               {loading ? (
                 <>
-                  <Loader className="w-5 h-5 mr-2 animate-spin" />
-                  Giriş Yapılıyor...
+                  <Loader className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
+                  <span className="hidden sm:inline">Giriş Yapılıyor...</span>
+                  <span className="sm:hidden">Giriş...</span>
                 </>
               ) : (
                 <>
-                  <LogIn className="w-5 h-5 mr-2" />
+                  <LogIn className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Giriş Yap
                 </>
               )}
             </button>
           </form>
 
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
+          {/* Footer - Mobil Uyumlu */}
+          <div className="mt-4 sm:mt-6 text-center">
+            <p className="text-xs text-gray-500 px-2">
               Giriş sorunları için okul yönetimi ile iletişime geçin
             </p>
           </div>

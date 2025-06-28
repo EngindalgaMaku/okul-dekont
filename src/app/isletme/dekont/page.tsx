@@ -459,12 +459,12 @@ export default function IsletmeDekontPage() {
           </div>
         </div>
 
-        {/* Step 1: İşletme Seçimi */}
+        {/* Step 1: İşletme Seçimi - Mobil Uyumlu */}
         {step === 1 && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Building2 className="w-6 h-6 text-blue-600" />
-              <h2 className="text-xl font-semibold">İşletme Girişi</h2>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <div className="flex items-center gap-2 mb-4 sm:mb-6">
+              <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <h2 className="text-lg sm:text-xl font-semibold">İşletme Girişi</h2>
             </div>
 
             <div className="relative">
@@ -477,23 +477,23 @@ export default function IsletmeDekontPage() {
                     setIsDropdownOpen(true)
                   }}
                   onFocus={() => setIsDropdownOpen(true)}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                  placeholder="İşletme adı veya yetkili kişi ile arama yapın..."
+                  className="w-full p-3 sm:p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm sm:text-base"
+                  placeholder="İşletme adı veya yetkili kişi..."
                 />
-                <Search className="absolute right-4 top-4 w-6 h-6 text-gray-400" />
+                <Search className="absolute right-3 top-3 sm:right-4 sm:top-4 w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
               </div>
 
-              {/* Dropdown */}
+              {/* Dropdown - Mobil Uyumlu */}
               {isDropdownOpen && filteredIsletmeler.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg mt-2 z-10 max-h-60 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg mt-2 z-10 max-h-48 sm:max-h-60 overflow-y-auto">
                   {filteredIsletmeler.map((isletme) => (
                     <div
                       key={isletme.id}
                       onClick={() => handleIsletmeSelect(isletme)}
-                      className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      className="p-3 sm:p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     >
-                      <div className="font-medium text-gray-900">{isletme.ad}</div>
-                      <div className="text-sm text-gray-500">Yetkili: {isletme.yetkili_kisi}</div>
+                      <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{isletme.ad}</div>
+                      <div className="text-xs sm:text-sm text-gray-500 truncate">Yetkili: {isletme.yetkili_kisi}</div>
                     </div>
                   ))}
                 </div>
@@ -501,47 +501,48 @@ export default function IsletmeDekontPage() {
             </div>
 
             {searchTerm && isDropdownOpen && filteredIsletmeler.length === 0 && (
-              <div className="text-center text-gray-500 mt-4">
+              <div className="text-center text-gray-500 mt-4 text-sm">
                 Arama kriterlerinize uygun işletme bulunamadı.
               </div>
             )}
           </div>
         )}
 
-        {/* Step 2: PIN Girişi */}
+        {/* Step 2: PIN Girişi - Mobil Uyumlu */}
         {step === 2 && selectedIsletme && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
             <button
               onClick={handleBack}
-              className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+              className="flex items-center text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 text-sm sm:text-base"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Geri
             </button>
 
             <div className="text-center">
-              <Lock className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">PIN Doğrulama</h2>
-              <p className="text-gray-600 mb-6">
-                <strong>{selectedIsletme.ad}</strong> işletmesi için PIN'inizi girin
+              <Lock className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600 mx-auto mb-3 sm:mb-4" />
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">PIN Doğrulama</h2>
+              <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-2">
+                <strong className="block sm:inline">{selectedIsletme.ad}</strong> 
+                <span className="block sm:inline"> işletmesi için PIN'inizi girin</span>
               </p>
 
-              <form onSubmit={handlePinSubmit} className="max-w-sm mx-auto">
+              <form onSubmit={handlePinSubmit} className="max-w-xs mx-auto">
                 <input
                   type="password"
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
-                  className="w-full p-4 text-center text-2xl border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none mb-4"
+                  className="w-full p-3 sm:p-4 text-center text-xl sm:text-2xl border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none mb-4"
                   placeholder="PIN"
                   maxLength={6}
                   required
                 />
                 {pinError && (
-                  <div className="text-red-600 text-sm mb-4">{pinError}</div>
+                  <div className="text-red-600 text-xs sm:text-sm mb-4 px-2">{pinError}</div>
                 )}
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 text-white p-4 rounded-xl hover:bg-blue-700 transition-colors"
+                  className="w-full bg-blue-600 text-white p-3 sm:p-4 rounded-xl hover:bg-blue-700 transition-colors text-sm sm:text-base"
                 >
                   Giriş Yap
                 </button>
@@ -550,58 +551,58 @@ export default function IsletmeDekontPage() {
           </div>
         )}
 
-        {/* Step 3: Ana Panel - Tabs */}
+        {/* Step 3: Ana Panel - Tabs - Mobil Uyumlu */}
         {step === 3 && selectedIsletme && (
           <>
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <button
                   onClick={handleBack}
-                  className="flex items-center text-gray-600 hover:text-gray-900"
+                  className="flex items-center text-gray-600 hover:text-gray-900 text-sm sm:text-base"
                 >
-                  <ArrowLeft className="h-5 w-5 mr-2" />
-                  Geri
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Geri</span>
                 </button>
-                <div className="text-center">
-                  <h2 className="text-xl font-semibold text-gray-800">{selectedIsletme.ad}</h2>
-                  <p className="text-gray-600">Yetkili: {selectedIsletme.yetkili_kisi}</p>
+                <div className="text-center flex-1 mx-2">
+                  <h2 className="text-sm sm:text-xl font-semibold text-gray-800 truncate">{selectedIsletme.ad}</h2>
+                  <p className="text-xs sm:text-sm text-gray-600 truncate">Yetkili: {selectedIsletme.yetkili_kisi}</p>
                 </div>
-                <div></div>
+                <div className="w-8 sm:w-0"></div>
               </div>
 
-              {/* Tab Navigation */}
-              <div className="flex border-b border-gray-200">
+              {/* Tab Navigation - Mobil Uyumlu */}
+              <div className="flex border-b border-gray-200 overflow-x-auto">
                 <button
                   onClick={() => setActiveTab('upload')}
-                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === 'upload'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <Upload className="w-4 h-4 inline mr-2" />
-                  Dekont Yükle
+                  <Upload className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Dekont </span>Yükle
                 </button>
                 <button
                   onClick={() => setActiveTab('list')}
-                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === 'list'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <FileText className="w-4 h-4 inline mr-2" />
-                  Dekont Listesi
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Dekont </span>Liste
                 </button>
                 <button
                   onClick={() => setActiveTab('belgeler')}
-                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === 'belgeler'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <FileText className="w-4 h-4 inline mr-2" />
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
                   Belgeler
                 </button>
               </div>
@@ -609,38 +610,38 @@ export default function IsletmeDekontPage() {
 
             {/* Tab Content */}
             {activeTab === 'upload' && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold mb-6">Yeni Dekont Yükle</h3>
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6">Yeni Dekont Yükle</h3>
 
                 {submitSuccess ? (
-                  <div className="text-center py-12">
-                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
+                  <div className="text-center py-8 sm:py-12">
+                    <div className="mx-auto flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-green-100">
+                      <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                     </div>
-                    <h3 className="mt-3 text-lg font-medium text-gray-900">
+                    <h3 className="mt-3 text-base sm:text-lg font-medium text-gray-900">
                       Dekont Başarıyla Gönderildi
                     </h3>
-                    <p className="mt-2 text-sm text-gray-500">
+                    <p className="mt-2 text-xs sm:text-sm text-gray-500 px-4">
                       Dekontunuz onay için gönderildi.
                     </p>
                     <button
                       onClick={() => setSubmitSuccess(false)}
-                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                     >
                       Yeni Dekont Yükle
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Stajyer Öğrenci
                       </label>
                       <select
                         value={selectedStaj}
                         onChange={(e) => setSelectedStaj(e.target.value)}
                         required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                       >
                         <option value="">Öğrenci Seçin</option>
                         {stajlar.map((staj) => (
@@ -652,7 +653,7 @@ export default function IsletmeDekontPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Ödeme Miktarı (TL)
                       </label>
                       <input
@@ -662,13 +663,13 @@ export default function IsletmeDekontPage() {
                         step="0.01"
                         min="0"
                         required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                         placeholder="0.00"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Ödeme Tarihi
                       </label>
                       <input
@@ -676,12 +677,12 @@ export default function IsletmeDekontPage() {
                         value={odemeTarihi}
                         onChange={(e) => setOdemeTarihi(e.target.value)}
                         required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Dekont Dosyası
                       </label>
                       <input
@@ -689,9 +690,9 @@ export default function IsletmeDekontPage() {
                         onChange={(e) => setDekontDosyasi(e.target.files?.[0] || null)}
                         accept=".pdf,.jpg,.jpeg,.png"
                         required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                       />
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
                         PDF, JPG, JPEG veya PNG formatında dosya yükleyebilirsiniz.
                       </p>
                     </div>
@@ -699,7 +700,7 @@ export default function IsletmeDekontPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                      className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base"
                     >
                       {loading ? (
                         <>
@@ -719,38 +720,38 @@ export default function IsletmeDekontPage() {
             )}
 
             {activeTab === 'list' && (
-              <div className="space-y-6">
-                {/* Filtreler */}
-                <div className="bg-white rounded-xl shadow-lg p-6">
-                  <h3 className="text-lg font-semibold mb-4">Dekont Listesi</h3>
+              <div className="space-y-4 sm:space-y-6">
+                {/* Filtreler - Mobil Uyumlu */}
+                <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Dekont Listesi</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Arama
                       </label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                         <input
                           type="text"
                           value={dekontSearchTerm}
                           onChange={(e) => setDekontSearchTerm(e.target.value)}
-                          className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="pl-9 sm:pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                           placeholder="Öğrenci veya öğretmen adı..."
                         />
                       </div>
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Onay Durumu
                       </label>
                       <div className="relative">
-                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                         <select
                           value={statusFilter}
                           onChange={(e) => setStatusFilter(e.target.value)}
-                          className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="pl-9 sm:pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                         >
                           <option value="all">Tümü</option>
                           <option value="bekliyor">Bekliyor</option>
@@ -760,27 +761,28 @@ export default function IsletmeDekontPage() {
                       </div>
                     </div>
                     
-                    <div className="flex items-end">
+                    <div className="flex items-end sm:col-span-2 lg:col-span-1">
                       <button
                         onClick={() => {
                           setDekontSearchTerm('')
                           setStatusFilter('all')
                         }}
-                        className="w-full px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        className="w-full px-4 py-3 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                       >
                         Filtreleri Temizle
                       </button>
                     </div>
                   </div>
                   
-                  <div className="text-sm text-gray-500">
+                  <div className="text-xs sm:text-sm text-gray-500">
                     Toplam: {filteredDekontlar.length} dekont
                   </div>
                 </div>
 
-                {/* Dekont Listesi */}
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                  <div className="overflow-x-auto">
+                {/* Dekont Listesi - Mobil Uyumlu */}
+                <div className="bg-white rounded-xl shadow-lg">
+                  {/* Masaüstü Tablo Görünümü */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -846,11 +848,57 @@ export default function IsletmeDekontPage() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Mobil Card Görünümü */}
+                  <div className="sm:hidden p-3">
+                    {filteredDekontlar.map((dekont) => (
+                      <div key={dekont.id} className="bg-gray-50 rounded-lg p-4 mb-3 border border-gray-200">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center text-sm font-medium text-gray-900">
+                              <User className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                              <span className="truncate">{dekont.ogrenciler?.ad} {dekont.ogrenciler?.soyad}</span>
+                            </div>
+                            {dekont.ogretmenler && (
+                              <div className="text-xs text-gray-500 mt-1 ml-6">
+                                Öğretmen: {dekont.ogretmenler.ad} {dekont.ogretmenler.soyad}
+                              </div>
+                            )}
+                          </div>
+                          <button 
+                            onClick={() => handleView(dekont)}
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded-lg hover:bg-blue-50 flex-shrink-0"
+                            title="Detayları Görüntüle"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="flex items-center text-sm text-gray-900 mb-1">
+                              <CreditCard className="h-3 w-3 mr-2 text-gray-400" />
+                              {dekont.miktar.toLocaleString('tr-TR')} TL
+                            </div>
+                            <div className="flex items-center text-xs text-gray-500">
+                              <Calendar className="h-3 w-3 mr-2 text-gray-400" />
+                              {new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR')}
+                            </div>
+                          </div>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusClass(dekont.onay_durumu)}`}>
+                            {getStatusIcon(dekont.onay_durumu)}
+                            <span className="ml-1">{getStatusText(dekont.onay_durumu)}</span>
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
                   {filteredDekontlar.length === 0 && (
-                    <div className="text-center py-12">
-                      <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">Dekont bulunamadı</h3>
-                      <p className="mt-1 text-sm text-gray-500">
+                    <div className="text-center py-8 sm:py-12">
+                      <FileText className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm sm:text-base font-medium text-gray-900">Dekont bulunamadı</h3>
+                      <p className="mt-1 text-xs sm:text-sm text-gray-500 px-4">
                         {dekontSearchTerm || statusFilter !== 'all' 
                           ? 'Arama kriterlerinize uygun dekont bulunamadı.' 
                           : 'Henüz hiç dekont kaydı yok.'}
@@ -862,47 +910,47 @@ export default function IsletmeDekontPage() {
             )}
 
             {activeTab === 'belgeler' && (
-              <div className="space-y-6">
-                {/* Belgeler Filtreler */}
-                <div className="bg-white rounded-xl shadow-lg p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">Belgeler</h3>
+              <div className="space-y-4 sm:space-y-6">
+                {/* Belgeler Filtreler - Mobil Uyumlu */}
+                <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold">Belgeler</h3>
                     <button 
                       onClick={() => setBelgeModalOpen(true)}
-                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
+                      className="inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 text-sm sm:text-base"
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Belge Ekle
                     </button>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Arama
                       </label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                         <input
                           type="text"
                           value={belgeSearchTerm}
                           onChange={(e) => setBelgeSearchTerm(e.target.value)}
-                          className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="pl-9 sm:pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                           placeholder="Belge adı..."
                         />
                       </div>
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                         Belge Türü
                       </label>
                       <div className="relative">
-                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                         <select
                           value={belgeTurFilter}
                           onChange={(e) => setBelgeTurFilter(e.target.value)}
-                          className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="pl-9 sm:pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                         >
                           <option value="all">Tümü</option>
                           <option value="sozlesme">Sözleşme</option>
@@ -912,49 +960,49 @@ export default function IsletmeDekontPage() {
                       </div>
                     </div>
                     
-                    <div className="flex items-end">
+                    <div className="flex items-end sm:col-span-2 lg:col-span-1">
                       <button
                         onClick={() => {
                           setBelgeSearchTerm('')
                           setBelgeTurFilter('all')
                         }}
-                        className="w-full px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        className="w-full px-4 py-3 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                       >
                         Filtreleri Temizle
                       </button>
                     </div>
                   </div>
                   
-                  <div className="text-sm text-gray-500">
+                  <div className="text-xs sm:text-sm text-gray-500">
                     Toplam: {filteredBelgeler.length} belge
                   </div>
                 </div>
 
-                {/* Belgeler Listesi */}
+                {/* Belgeler Listesi - Mobil Uyumlu */}
                 <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                   {filteredBelgeler.length > 0 ? (
-                    <div className="space-y-4 p-6">
+                    <div className="space-y-3 sm:space-y-4 p-3 sm:p-6">
                       {filteredBelgeler.map((belge) => (
-                        <div key={belge.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center flex-1">
-                              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-4">
-                                <FileText className="h-5 w-5 text-indigo-600" />
+                        <div key={belge.id} className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-center flex-1 min-w-0">
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0">
+                                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
                               </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-gray-900">{belge.ad}</h4>
-                                <div className="flex items-center space-x-4 mt-1">
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{belge.ad}</h4>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mt-1 gap-1 sm:gap-0">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 self-start">
                                     {formatBelgeTur(belge.tur)}
                                   </span>
-                                  <span className="text-sm text-gray-500">
+                                  <span className="text-xs sm:text-sm text-gray-500">
                                     {new Date(belge.yukleme_tarihi).toLocaleDateString('tr-TR')}
                                   </span>
                                 </div>
                               </div>
                             </div>
                             
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 self-end sm:self-center">
                               <button 
                                 onClick={() => handleBelgeView(belge)}
                                 className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-all"
@@ -982,13 +1030,13 @@ export default function IsletmeDekontPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
-                      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz belge yok</h3>
-                      <p className="text-gray-600 mb-6">Bu işletme için henüz belge yüklenmemiş.</p>
+                    <div className="text-center py-8 sm:py-12 px-4">
+                      <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Henüz belge yok</h3>
+                      <p className="text-sm text-gray-600 mb-4 sm:mb-6">Bu işletme için henüz belge yüklenmemiş.</p>
                       <button 
                         onClick={() => setBelgeModalOpen(true)}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 text-sm"
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         İlk Belgeyi Ekle
