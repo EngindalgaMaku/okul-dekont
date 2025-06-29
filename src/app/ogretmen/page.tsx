@@ -27,6 +27,7 @@ interface Stajyer {
   soyad: string
   sinif: string
   alan: string
+  no: string
   isletme: {
     id: number
     ad: string
@@ -48,7 +49,7 @@ interface Dekont {
   isletmeler?: { ad: string }
 }
 
-type ActiveTab = 'isletmeler' | 'stajyerler' | 'dekont-yukle' | 'dekontlar'
+type ActiveTab = 'isletmeler' | 'dekont-yukle' | 'dekontlar'
 
 export default function OgretmenPage() {
   const router = useRouter()
@@ -131,7 +132,7 @@ export default function OgretmenPage() {
         id: isletme.id,
         ad: isletme.ad,
         yetkili_kisi: isletme.yetkili_kisi,
-        ogrenci_sayisi: isletme.stajlar.count
+        ogrenci_sayisi: isletme.stajlar[0]?.count || 0
       }))
       setIsletmeler(formattedIsletmeler)
     }
@@ -153,7 +154,8 @@ export default function OgretmenPage() {
           ad,
           soyad,
           sinif,
-          alanlar (ad)
+          alanlar (ad),
+          no
         )
       `)
       .eq('ogretmen_id', storedOgretmen.id)
@@ -166,6 +168,7 @@ export default function OgretmenPage() {
         soyad: staj.ogrenciler.soyad,
         sinif: staj.ogrenciler.sinif,
         alan: staj.ogrenciler.alanlar.ad,
+        no: staj.ogrenciler.no,
         isletme: {
           id: staj.isletmeler.id,
           ad: staj.isletmeler.ad,
@@ -324,7 +327,7 @@ export default function OgretmenPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -348,7 +351,7 @@ export default function OgretmenPage() {
         </div>
       </header>
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         <div className="bg-white p-2 rounded-xl shadow-md mb-8">
           <nav className="flex space-x-2">
             <button
@@ -357,13 +360,6 @@ export default function OgretmenPage() {
             >
               <Building2 className="h-5 w-5" />
               <span>İşletmeler ({isletmeler.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('stajyerler')}
-              className={`flex-1 flex justify-center items-center gap-2 p-3 rounded-lg font-medium text-sm transition-colors ${activeTab === 'stajyerler' ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
-            >
-              <Users className="h-5 w-5" />
-              <span>Öğrenciler ({stajyerler.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('dekont-yukle')}
@@ -388,47 +384,39 @@ export default function OgretmenPage() {
               <h2 className="text-xl font-bold mb-4 text-gray-800">Koordinatörlüğünüzdeki İşletmeler</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {isletmeler.map(isletme => (
-                  <div key={isletme.id} className="bg-white p-5 rounded-xl shadow-lg border border-gray-100 hover:shadow-blue-100 hover:border-blue-200 transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-bold text-gray-900">{isletme.ad}</h3>
-                      <div className="p-2 bg-blue-50 rounded-full">
-                        <Building2 className="h-5 w-5 text-blue-500" />
+                  <div key={isletme.id} className="bg-white p-5 rounded-xl shadow-lg border border-gray-100 hover:shadow-blue-100 hover:border-blue-200 transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-bold text-gray-900">{isletme.ad}</h3>
+                        <div className="p-2 bg-blue-50 rounded-full">
+                          <Building2 className="h-5 w-5 text-blue-500" />
+                        </div>
                       </div>
+                      <p className="text-sm text-gray-600 mb-4">Yetkili: {isletme.yetkili_kisi}</p>
                     </div>
-                    <p className="text-sm text-gray-600">Yetkili: {isletme.yetkili_kisi}</p>
-                    <p className="text-sm text-gray-600 mt-1">{isletme.ogrenci_sayisi} aktif stajyer</p>
+                    
+                    <div className="border-t border-gray-100 pt-4 mt-2">
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Öğrenciler</h4>
+                        <div className="space-y-3">
+                            {stajyerler
+                                .filter(stajyer => stajyer.isletme.id === isletme.id)
+                                .map(ogrenci => (
+                                    <div key={ogrenci.id} className="text-sm">
+                                        <div>
+                                            <p className="font-medium text-gray-800">{ogrenci.ad} {ogrenci.soyad}</p>
+                                            <p className="text-xs text-gray-500">{ogrenci.sinif} ({ogrenci.no}) / {ogrenci.alan}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                            {stajyerler.filter(stajyer => stajyer.isletme.id === isletme.id).length === 0 && (
+                                <p className="text-sm text-gray-400">Bu işletmede aktif öğrenci bulunmuyor.</p>
+                            )}
+                        </div>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {activeTab === 'stajyerler' && (
-            <div>
-              <h2 className="text-xl font-bold mb-4 text-gray-800">Aktif Öğrencileriniz</h2>
-               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 text-gray-600">
-                        <tr>
-                            <th className="p-3 font-semibold">Öğrenci</th>
-                            <th className="p-3 font-semibold">İşletme</th>
-                            <th className="p-3 font-semibold">Staj Tarihleri</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {stajyerler.map(stajyer => (
-                            <tr key={stajyer.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3">
-                                    <p className="font-semibold text-gray-800">{stajyer.ad} {stajyer.soyad}</p>
-                                    <p className="text-xs text-gray-500">{stajyer.sinif} - {stajyer.alan}</p>
-                                </td>
-                                <td className="p-3">{stajyer.isletme.ad}</td>
-                                <td className="p-3">{new Date(stajyer.baslangic_tarihi).toLocaleDateString()} - {new Date(stajyer.bitis_tarihi).toLocaleDateString()}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-               </div>
             </div>
           )}
 
@@ -567,7 +555,7 @@ export default function OgretmenPage() {
         </div>
       </main>
 
-      <footer className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white mt-12 py-6">
+      <footer className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
           © {new Date().getFullYear()} {okulAdi} - Koordinatörlük Yönetim Sistemi. Tüm Hakları Saklıdır.
         </div>
