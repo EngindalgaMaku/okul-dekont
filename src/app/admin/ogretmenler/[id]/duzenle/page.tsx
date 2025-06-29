@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Loader, Save, User, Mail, Phone, Briefcase, Key } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -21,8 +21,9 @@ interface Ogretmen {
   pin: string | null
 }
 
-export default function OgretmenDuzenlePage({ params }: { params: { id: string } }) {
+export default function OgretmenDuzenlePage() {
   const router = useRouter()
+  const params = useParams()
   const [loading, setLoading] = useState(true)
   const [submitLoading, setSubmitLoading] = useState(false)
   const [alanlar, setAlanlar] = useState<Alan[]>([])
