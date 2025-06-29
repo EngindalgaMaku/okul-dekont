@@ -9,14 +9,12 @@ interface Isletme {
     id: number
     ad: string
     yetkili_kisi: string
-    pin: string
 }
   
 interface Ogretmen {
-    id: number
+    id: string
     ad: string
     soyad: string
-    pin: string
 }
 
 // Debounce hook
@@ -68,7 +66,7 @@ export default function LoginPage() {
       if (loginType === 'isletme') {
         const { data, error } = await supabase
           .from('isletmeler')
-          .select('id, ad, yetkili_kisi, pin')
+          .select('id, ad, yetkili_kisi')
           .ilike('ad', `%${term}%`)
           .limit(10)
           .order('ad')
@@ -79,7 +77,7 @@ export default function LoginPage() {
       } else {
         const { data, error } = await supabase
           .from('ogretmenler')
-          .select('id, ad, soyad, pin')
+          .select('id, ad, soyad')
           .or(`ad.ilike.%${term}%,soyad.ilike.%${term}%`)
           .limit(10)
           .order('ad')
@@ -134,7 +132,7 @@ export default function LoginPage() {
           .rpc('check_isletme_pin_giris', {
             p_isletme_id: selectedIsletme.id,
             p_girilen_pin: pinInput,
-            p_ip_adresi: window.location.hostname,
+            p_ip_adresi: '127.0.0.1',
             p_user_agent: navigator.userAgent
           })
 
@@ -168,7 +166,7 @@ export default function LoginPage() {
           .rpc('check_ogretmen_pin_giris', {
             p_ogretmen_id: selectedOgretmen.id,
             p_girilen_pin: pinInput,
-            p_ip_adresi: window.location.hostname,
+            p_ip_adresi: '127.0.0.1',
             p_user_agent: navigator.userAgent
           })
 
@@ -283,7 +281,7 @@ export default function LoginPage() {
                 
                 return (
                   <div
-                    key={item.id}
+                    key={String(item.id)}
                     onClick={() => handleItemSelect(item)}
                     className="px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
                   >

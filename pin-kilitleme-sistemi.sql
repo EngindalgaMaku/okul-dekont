@@ -15,7 +15,7 @@ ADD COLUMN IF NOT EXISTS hesap_kilitli boolean DEFAULT false,
 ADD COLUMN IF NOT EXISTS son_yanlis_giris timestamp with time zone,
 ADD COLUMN IF NOT EXISTS kilitlenme_tarihi timestamp with time zone;
 
--- 3. Pin girişi log tablosu oluştur
+-- 3. Pin girişi log tablosu oluştur (yeni kayıtlar için)
 CREATE TABLE IF NOT EXISTS pin_giris_loglari (
   id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   hesap_tipi text NOT NULL CHECK (hesap_tipi IN ('ogretmen', 'isletme')),
@@ -286,4 +286,8 @@ SELECT
   END as hesap_adi
 FROM pin_giris_loglari pgl
 ORDER BY pgl.created_at DESC;
-*/ 
+*/
+
+-- Önce mevcut hesap_id kolonunu değiştir
+ALTER TABLE pin_giris_loglari 
+ALTER COLUMN hesap_id TYPE bigint USING hesap_id::bigint; 
