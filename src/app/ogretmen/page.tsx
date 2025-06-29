@@ -555,7 +555,7 @@ export default function OgretmenPage() {
         </div>
       </main>
 
-      <footer className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-6">
+      <footer className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
           © {new Date().getFullYear()} {okulAdi} - Koordinatörlük Yönetim Sistemi. Tüm Hakları Saklıdır.
         </div>
