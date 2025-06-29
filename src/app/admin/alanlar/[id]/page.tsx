@@ -1270,9 +1270,9 @@ export default function AlanDetayPage() {
         onClose={() => setDeleteSinifModal(false)}
         onConfirm={handleSinifSilOnayla}
         title="Sınıfı Sil"
-        message={`"${selectedSinif?.ad}" sınıfını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
+        description={`"${selectedSinif?.ad}" sınıfını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
         confirmText="Sil"
-        loading={submitLoading}
+        isLoading={submitLoading}
       />
 
       {/* Öğrenci Modalları */}
@@ -1403,9 +1403,9 @@ export default function AlanDetayPage() {
         onClose={() => setDeleteOgrenciModal(false)}
         onConfirm={handleOgrenciSilOnayla}
         title="Öğrenciyi Sil"
-        message={`"${selectedOgrenci?.ad} ${selectedOgrenci?.soyad}" öğrencisini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
+        description={`"${selectedOgrenci?.ad} ${selectedOgrenci?.soyad}" öğrencisini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
         confirmText="Sil"
-        loading={submitLoading}
+        isLoading={submitLoading}
       />
 
       {/* Alan Ayarları Modalı */}
