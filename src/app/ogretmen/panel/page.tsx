@@ -6,6 +6,17 @@ import { Building2, FileText, LogOut, Loader, User, Phone, Mail, CheckCircle, Cl
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
 
+interface OgretmenSession {
+  ogretmen: {
+    id: number;
+    ad: string;
+    soyad: string;
+    email?: string;
+    telefon?: string;
+    alan_id?: number;
+  }
+}
+
 export default function OgretmenPanelPage() {
   const router = useRouter()
   const [session, setSession] = useState<OgretmenSession | null>(null)

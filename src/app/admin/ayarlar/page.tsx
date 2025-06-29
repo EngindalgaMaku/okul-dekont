@@ -874,20 +874,15 @@ export default function AyarlarPage() {
       {/* Silme Onay Modalı */}
       <ConfirmModal
         isOpen={deleteModalOpen}
-        onClose={() => {
-          setDeleteModalOpen(false)
-          setSelectedEgitimYili(null)
-        }}
+        onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleSil}
         title="Eğitim Yılını Sil"
-        message={
-          selectedEgitimYili 
+        description={
+          selectedEgitimYili
             ? `"${selectedEgitimYili.yil}" eğitim yılını silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz!`
             : ""
         }
         confirmText="Sil"
-        cancelText="İptal"
-        type="danger"
       />
 
       {/* Aktif Yıl Uyarı Modalı */}

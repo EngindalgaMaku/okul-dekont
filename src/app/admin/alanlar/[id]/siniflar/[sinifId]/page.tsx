@@ -80,7 +80,7 @@ export default async function SinifDetayPage({
           <h2 className="text-lg font-medium text-gray-700 mb-4">{sinif.ad}</h2>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-6">
-            <OgrenciTablosu ogrenciler={ogrenciler || []} sinif={sinif} />
+            <OgrenciTablosu ogrenciler={ogrenciler || []} />
           </div>
         </div>
       </div>

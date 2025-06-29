@@ -22,6 +22,7 @@ interface Dekont {
     ogrenciler?: { ad: string; soyad: string };
     isletmeler?: { ad: string };
     ogretmenler?: { ad: string; soyad: string };
+    saat_sayisi?: number;
 }
 
 export default function DekontYonetimiPage() {
@@ -517,12 +518,14 @@ export default function DekontYonetimiPage() {
         isOpen={deleteModal}
         onClose={() => setDeleteModal(false)}
         onConfirm={handleConfirmDelete}
-        title="Dekont Sil"
-        message={`Bu dekontu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`}
+        title="Dekontu Sil"
+        description={
+          selectedDekont
+            ? `"${selectedDekont.ogrenciler?.ad} ${selectedDekont.ogrenciler?.soyad}" öğrencisinin dekontunu silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz!`
+            : ""
+        }
         confirmText="Sil"
-        cancelText="İptal"
-        type="danger"
-        loading={submitLoading}
+        isLoading={submitLoading}
       />
     </div>
   )

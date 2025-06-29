@@ -957,11 +957,9 @@ export default function IsletmeYonetimiPage() {
         onClose={() => setDeleteModal(false)}
         onConfirm={handleConfirmDelete}
         title="İşletmeyi Sil"
-        message={`"${selectedIsletme?.ad}" işletmesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm ilgili veriler de silinecektir.`}
+        description={`"${selectedIsletme?.ad}" işletmesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm ilgili veriler de silinecektir.`}
         confirmText="Sil"
-        cancelText="İptal"
-        type="danger"
-        loading={submitLoading}
+        isLoading={submitLoading}
       />
     </div>
   )
