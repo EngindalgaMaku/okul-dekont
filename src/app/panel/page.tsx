@@ -13,12 +13,13 @@ interface Isletme {
   yetkili_kisi: string
 }
 
-interface Stajyer {
+interface Ogrenci {
   id: number
   staj_id: number
   ad: string
   soyad: string
   sinif: string
+  no: string
   alan: string
   baslangic_tarihi: string
   bitis_tarihi: string
@@ -50,8 +51,8 @@ export default function PanelPage() {
   const router = useRouter()
   const { egitimYili, okulAdi } = useEgitimYili()
   const [isletme, setIsletme] = useState<Isletme | null>(null)
-  const [activeTab, setActiveTab] = useState('stajyerler')
-  const [stajyerler, setStajyerler] = useState<Stajyer[]>([])
+  const [activeTab, setActiveTab] = useState('ogrenciler')
+  const [ogrenciler, setOgrenciler] = useState<Ogrenci[]>([])
   const [dekontlar, setDekontlar] = useState<Dekont[]>([])
   const [belgeler, setBelgeler] = useState<Belge[]>([])
   const [filteredBelgeler, setFilteredBelgeler] = useState<Belge[]>([])
@@ -66,11 +67,11 @@ export default function PanelPage() {
 
   // Dekont yönetimi için state'ler
   const [dekontModalOpen, setDekontModalOpen] = useState(false)
-  const [selectedStajyer, setSelectedStajyer] = useState<Stajyer | null>(null)
+  const [selectedOgrenci, setSelectedOgrenci] = useState<Ogrenci | null>(null)
   
   // Dekont görüntüleme için state'ler
   const [dekontViewModalOpen, setDekontViewModalOpen] = useState(false)
-  const [selectedStajyerDekontlar, setSelectedStajyerDekontlar] = useState<Dekont[]>([])
+  const [selectedOgrenciDekontlar, setSelectedOgrenciDekontlar] = useState<Dekont[]>([])
   const [selectedDekont, setSelectedDekont] = useState<Dekont | null>(null)
   const [dekontDetailModalOpen, setDekontDetailModalOpen] = useState(false)
 
@@ -127,7 +128,7 @@ export default function PanelPage() {
     setLoading(true)
     const storedIsletme = JSON.parse(localStorage.getItem('isletme') || '{}')
 
-    // Stajyerleri getir
+    // Öğrencileri getir
     const { data: stajData } = await supabase
       .from('stajlar')
       .select(`
@@ -140,6 +141,7 @@ export default function PanelPage() {
           ad,
           soyad,
           sinif,
+          no,
           alan:alanlar(ad)
         )
       `)
@@ -147,17 +149,18 @@ export default function PanelPage() {
       .eq('durum', 'aktif')
 
     if (stajData) {
-      const formattedStajyerler = stajData.map((staj: any) => ({
+      const formattedOgrenciler = stajData.map((staj: any) => ({
         id: staj.ogrenci.id,
         staj_id: staj.id,
         ad: staj.ogrenci.ad,
         soyad: staj.ogrenci.soyad,
         sinif: staj.ogrenci.sinif,
+        no: staj.ogrenci.no,
         alan: staj.ogrenci.alan.ad,
         baslangic_tarihi: staj.baslangic_tarihi,
         bitis_tarihi: staj.bitis_tarihi
       }))
-      setStajyerler(formattedStajyerler)
+      setOgrenciler(formattedOgrenciler)
     }
 
     // Dekontları şu anlık getirmiyoruz - tablo yapısı eksik
@@ -250,7 +253,7 @@ export default function PanelPage() {
   }
 
   const handleDekontEkle = async () => {
-    if (!selectedStajyer || !dekontFormData.tarih || !dekontFormData.ay) {
+    if (!selectedOgrenci || !dekontFormData.tarih || !dekontFormData.ay) {
       alert('Dekont tarihi ve ayı zorunludur!')
       return
     }
@@ -268,7 +271,7 @@ export default function PanelPage() {
 
       // Dekontlar tablosundaki mevcut kolonları kullan
       const insertData: any = {
-        staj_id: selectedStajyer.staj_id,
+        staj_id: selectedOgrenci.staj_id,
         odeme_tarihi: dekontFormData.tarih,
         miktar: dekontFormData.tutar && dekontFormData.tutar.trim() !== '' ? parseFloat(dekontFormData.tutar) : null,
         onay_durumu: 'beklemede',
@@ -295,8 +298,8 @@ export default function PanelPage() {
         console.error('Dekont ekleme hatası:', error)
         console.error('Hata detayı:', error.message)
         console.error('Gönderilen veri:', {
-          staj_id: selectedStajyer.staj_id,
-          ogrenci_id: selectedStajyer.id,
+          staj_id: selectedOgrenci.staj_id,
+          ogrenci_id: selectedOgrenci.id,
           isletme_id: isletme!.id,
           tarih: dekontFormData.tarih,
           ay: dekontFormData.ay,
@@ -311,7 +314,7 @@ export default function PanelPage() {
 
       alert('Dekont başarıyla eklendi!')
       setDekontModalOpen(false)
-      setSelectedStajyer(null)
+      setSelectedOgrenci(null)
       setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
       fetchData() // Veriyi yeniden yükle
     } catch (error) {
@@ -321,19 +324,19 @@ export default function PanelPage() {
   }
 
   // Dekont görüntüleme fonksiyonları
-  const handleDekontlarGoster = async (stajyer: Stajyer) => {
+  const handleDekontlarGoster = async (ogrenci: Ogrenci) => {
     try {
       const { data: dekontData } = await supabase
         .from('dekontlar')
         .select('*')
-        .eq('staj_id', stajyer.staj_id)
+        .eq('staj_id', ogrenci.staj_id)
         .order('created_at', { ascending: false })
 
       console.log('Dekont verisi:', dekontData) // Debug için
       if (dekontData) {
         const formattedDekontlar = dekontData.map((dekont: any) => ({
           id: dekont.id,
-          ogrenci_adi: `${stajyer.ad} ${stajyer.soyad}`,
+          ogrenci_adi: `${ogrenci.ad} ${ogrenci.soyad}`,
           miktar: dekont.miktar,
           odeme_tarihi: dekont.odeme_tarihi,
           onay_durumu: dekont.onay_durumu,
@@ -343,8 +346,8 @@ export default function PanelPage() {
           tutar: dekont.miktar,
           ay: dekont.ay || ''
         }))
-        setSelectedStajyerDekontlar(formattedDekontlar)
-        setSelectedStajyer(stajyer)
+        setSelectedOgrenciDekontlar(formattedDekontlar)
+        setSelectedOgrenci(ogrenci)
         setDekontViewModalOpen(true)
       }
     } catch (error) {
@@ -409,13 +412,11 @@ export default function PanelPage() {
                 </div>
               </div>
               <div className="flex items-center gap-6">
-
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 text-indigo-100 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all duration-200"
                 >
                   <LogOut className="h-5 w-5" />
-                  <span className="font-medium">Çıkış Yap</span>
                 </button>
               </div>
             </div>
@@ -429,16 +430,16 @@ export default function PanelPage() {
             <div className="border-b border-gray-200 mb-8">
               <nav className="-mb-px flex gap-8">
                 <button
-                  onClick={() => setActiveTab('stajyerler')}
+                  onClick={() => setActiveTab('ogrenciler')}
                   className={`py-4 px-2 border-b-2 font-medium text-sm transition-all duration-200 ${
-                    activeTab === 'stajyerler'
+                    activeTab === 'ogrenciler'
                       ? 'border-indigo-500 text-indigo-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
-                    <span>Stajyerler</span>
+                    <span>Öğrenciler</span>
                   </div>
                 </button>
 
@@ -467,18 +468,18 @@ export default function PanelPage() {
                 </div>
                 <p className="mt-4 text-gray-600 font-medium">Yükleniyor...</p>
               </div>
-            ) : activeTab === 'stajyerler' ? (
+            ) : activeTab === 'ogrenciler' ? (
               <>
                 <div className="px-4 py-6 border-b border-gray-200 sm:px-0">
-                  <h2 className="text-xl font-semibold text-gray-900">Stajyer Öğrenciler</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Öğrenciler</h2>
                   <p className="mt-2 text-sm text-gray-600">
-                    Toplam <span className="font-semibold text-indigo-600">{stajyerler.length}</span> aktif stajyer
+                    Toplam <span className="font-semibold text-indigo-600">{ogrenciler.length}</span> aktif öğrenci
                   </p>
                 </div>
-                {stajyerler.length > 0 ? (
+                {ogrenciler.length > 0 ? (
                   <div className="divide-y divide-gray-100 -mx-6 md:-mx-8">
-                    {stajyerler.map((stajyer) => (
-                      <div key={stajyer.id} className="px-6 md:px-8 py-6 hover:bg-gray-50 transition-colors duration-150">
+                    {ogrenciler.map((ogrenci) => (
+                      <div key={ogrenci.id} className="px-6 md:px-8 py-6 hover:bg-gray-50 transition-colors duration-150">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                           <div className="flex items-center">
                             <div className="p-3 bg-indigo-100 rounded-xl">
@@ -486,22 +487,24 @@ export default function PanelPage() {
                             </div>
                             <div className="ml-4">
                               <h3 className="text-base font-semibold text-gray-900">
-                                {stajyer.ad} {stajyer.soyad}
+                                {ogrenci.ad} {ogrenci.soyad}
                               </h3>
-                              <p className="text-sm text-gray-600 mt-1">{stajyer.alan}</p>
+                              <p className="text-sm text-gray-600 mt-1">{ogrenci.alan}</p>
                             </div>
                           </div>
                           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                             <div className="text-left sm:text-right">
-                              <p className="text-sm font-medium text-gray-900">Sınıf: {stajyer.sinif}</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {ogrenci.sinif} {ogrenci.no && ` - No: ${ogrenci.no}`}
+                              </p>
                               <p className="text-xs text-gray-500 mt-1">
-                                {new Date(stajyer.baslangic_tarihi).toLocaleDateString('tr-TR')} -{' '}
-                                {new Date(stajyer.bitis_tarihi).toLocaleDateString('tr-TR')}
+                                {new Date(ogrenci.baslangic_tarihi).toLocaleDateString('tr-TR')} -{' '}
+                                {new Date(ogrenci.bitis_tarihi).toLocaleDateString('tr-TR')}
                               </p>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2">
                               <button
-                                onClick={() => handleDekontlarGoster(stajyer)}
+                                onClick={() => handleDekontlarGoster(ogrenci)}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md"
                                 title="Dekontları görüntüle"
                               >
@@ -510,7 +513,7 @@ export default function PanelPage() {
                               </button>
                               <button
                                 onClick={() => {
-                                  setSelectedStajyer(stajyer)
+                                  setSelectedOgrenci(ogrenci)
                                   setDekontFormData({ 
                                     tarih: new Date().toISOString().split('T')[0], 
                                     ay: '',
@@ -537,8 +540,8 @@ export default function PanelPage() {
                     <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center">
                       <Users className="h-10 w-10 text-gray-400" />
                     </div>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900">Stajyer Bulunamadı</h3>
-                    <p className="mt-2 text-sm text-gray-500">Henüz aktif stajyeriniz bulunmuyor.</p>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">Öğrenci Bulunamadı</h3>
+                    <p className="mt-2 text-sm text-gray-500">Henüz aktif öğrenciniz bulunmuyor.</p>
                   </div>
                 )}
               </>
@@ -866,22 +869,26 @@ export default function PanelPage() {
         isOpen={dekontModalOpen} 
         onClose={() => {
           setDekontModalOpen(false)
-          setSelectedStajyer(null)
+          setSelectedOgrenci(null)
           setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
         }}
-        title={selectedStajyer ? `${selectedStajyer.ad} ${selectedStajyer.soyad} - Dekont Yükle` : 'Dekont Yükle'}
+        title={selectedOgrenci ? `${selectedOgrenci.ad} ${selectedOgrenci.soyad} - Dekont Yükle` : 'Dekont Yükle'}
+        size="lg"
       >
         <div className="space-y-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-            <p className="text-sm text-green-800">
-              <strong>Öğrenci:</strong> {selectedStajyer ? `${selectedStajyer.ad} ${selectedStajyer.soyad}` : ''}
-            </p>
-            <p className="text-sm text-green-800">
-              <strong>Sınıf:</strong> {selectedStajyer ? selectedStajyer.sinif : ''}
-            </p>
-            <p className="text-sm text-green-800">
-              <strong>Alan:</strong> {selectedStajyer ? selectedStajyer.alan : ''}
-            </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Öğrenci Bilgileri</h3>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <strong>Öğrenci:</strong> {selectedOgrenci ? `${selectedOgrenci.ad} ${selectedOgrenci.soyad}` : ''}
+              </div>
+              <div>
+                <strong>Sınıf:</strong> {selectedOgrenci ? selectedOgrenci.sinif : ''}
+              </div>
+              <div>
+                <strong>Alan:</strong> {selectedOgrenci ? selectedOgrenci.alan : ''}
+              </div>
+            </div>
           </div>
 
           <div>
@@ -892,7 +899,7 @@ export default function PanelPage() {
               type="date"
               value={dekontFormData.tarih}
               onChange={(e) => setDekontFormData({...dekontFormData, tarih: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             />
           </div>
@@ -904,7 +911,7 @@ export default function PanelPage() {
             <select
               value={dekontFormData.ay}
               onChange={(e) => setDekontFormData({...dekontFormData, ay: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             >
               <option value="">Ay Seçiniz</option>
@@ -930,7 +937,7 @@ export default function PanelPage() {
             <textarea
               value={dekontFormData.aciklama}
               onChange={(e) => setDekontFormData({...dekontFormData, aciklama: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={3}
               placeholder="Dekont açıklamasını giriniz (opsiyonel)"
             />
@@ -945,7 +952,7 @@ export default function PanelPage() {
               step="0.01"
               value={dekontFormData.tutar}
               onChange={(e) => setDekontFormData({...dekontFormData, tutar: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="0.00 (opsiyonel)"
             />
           </div>
@@ -954,7 +961,7 @@ export default function PanelPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Dekont Dosyası (Opsiyonel)
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
               <input
                 type="file"
                 id="dekont-dosya"
@@ -978,7 +985,7 @@ export default function PanelPage() {
             <button
               onClick={() => {
                 setDekontModalOpen(false)
-                setSelectedStajyer(null)
+                setSelectedOgrenci(null)
                 setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
               }}
               className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
@@ -987,7 +994,7 @@ export default function PanelPage() {
             </button>
             <button
               onClick={handleDekontEkle}
-              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
             >
               Dekont Ekle
             </button>
@@ -1000,28 +1007,28 @@ export default function PanelPage() {
         isOpen={dekontViewModalOpen} 
         onClose={() => {
           setDekontViewModalOpen(false)
-          setSelectedStajyer(null)
-          setSelectedStajyerDekontlar([])
+          setSelectedOgrenci(null)
+          setSelectedOgrenciDekontlar([])
         }}
-        title={selectedStajyer ? `${selectedStajyer.ad} ${selectedStajyer.soyad} - Dekontlar` : 'Dekontlar'}
+        title={selectedOgrenci ? `${selectedOgrenci.ad} ${selectedOgrenci.soyad} - Dekontlar` : 'Dekontlar'}
         size="lg"
       >
         <div className="space-y-4">
-          {selectedStajyer && (
+          {selectedOgrenci && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <h3 className="text-lg font-semibold text-blue-900 mb-2">Öğrenci Bilgileri</h3>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-blue-700 font-medium">Ad Soyad:</span>
-                  <p className="text-blue-900">{selectedStajyer.ad} {selectedStajyer.soyad}</p>
+                  <p className="text-blue-900">{selectedOgrenci.ad} {selectedOgrenci.soyad}</p>
                 </div>
                 <div>
                   <span className="text-blue-700 font-medium">Sınıf:</span>
-                  <p className="text-blue-900">{selectedStajyer.sinif}</p>
+                  <p className="text-blue-900">{selectedOgrenci.sinif} {selectedOgrenci.no && `- No: ${selectedOgrenci.no}`}</p>
                 </div>
                 <div>
                   <span className="text-blue-700 font-medium">Alan:</span>
-                  <p className="text-blue-900">{selectedStajyer.alan}</p>
+                  <p className="text-blue-900">{selectedOgrenci.alan}</p>
                 </div>
               </div>
             </div>
@@ -1029,13 +1036,13 @@ export default function PanelPage() {
 
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-lg font-medium text-gray-900">
-              Dekont Listesi ({selectedStajyerDekontlar.length} adet)
+              Dekont Listesi ({selectedOgrenciDekontlar.length} adet)
             </h4>
           </div>
 
-          {selectedStajyerDekontlar.length > 0 ? (
+          {selectedOgrenciDekontlar.length > 0 ? (
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {selectedStajyerDekontlar.map((dekont) => (
+              {selectedOgrenciDekontlar.map((dekont) => (
                 <div 
                   key={dekont.id} 
                   className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -1155,7 +1162,6 @@ export default function PanelPage() {
                       <button 
                         onClick={() => window.open(selectedDekont.dosya_url, '_blank')}
                         className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-all"
-                        title="Dosyayı görüntüle"
                       >
                         <Eye className="h-4 w-4" />
                       </button>

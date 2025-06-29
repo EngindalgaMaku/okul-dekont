@@ -4,42 +4,27 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2, FileText, LogOut, Loader, User, Phone, Mail, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import Modal from '@/components/ui/Modal'
 
 export default function OgretmenPanelPage() {
   const router = useRouter()
-  const [session, setSession] = useState<any>(null)
+  const [session, setSession] = useState<OgretmenSession | null>(null)
   const [isletmeler, setIsletmeler] = useState<any[]>([])
   const [dekontlar, setDekontlar] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedTab, setSelectedTab] = useState<'isletmeler' | 'dekontlar'>('isletmeler')
+  const [selectedDekont, setSelectedDekont] = useState<any>(null)
+  const [dekontDetailModalOpen, setDekontDetailModalOpen] = useState(false)
 
   useEffect(() => {
-    checkSession()
-  }, [])
-
-  const checkSession = async () => {
-    try {
-      const sessionData = localStorage.getItem('ogretmen_session')
-      if (!sessionData) {
-        router.push('/ogretmen/login')
-        return
-      }
-
-      const parsedSession = JSON.parse(sessionData)
-      
-      if (new Date() > new Date(parsedSession.expires_at)) {
-        localStorage.removeItem('ogretmen_session')
-        router.push('/ogretmen/login')
-        return
-      }
-
+    const storedSession = localStorage.getItem('ogretmen_session')
+    if (storedSession) {
+      const parsedSession = JSON.parse(storedSession)
       setSession(parsedSession)
-      await fetchOgretmenData(parsedSession.ogretmen.id)
-    } catch (error) {
-      console.error('Session kontrol hatası:', error)
+      fetchOgretmenData(parsedSession.ogretmen.id)
+    } else {
       router.push('/ogretmen/login')
     }
-  }
+  }, [])
 
   const fetchOgretmenData = async (ogretmenId: number) => {
     setLoading(true)
@@ -64,7 +49,11 @@ export default function OgretmenPanelPage() {
             id,
             miktar,
             odeme_tarihi,
+            odeme_son_tarihi,
+            ay,
+            yil,
             onay_durumu,
+            red_nedeni,
             stajlar (
               ogrenciler (
                 ad,
@@ -93,26 +82,6 @@ export default function OgretmenPanelPage() {
     router.push('/ogretmen/login')
   }
 
-  const handleDekontAction = async (dekontId: number, action: 'onaylandi' | 'reddedildi') => {
-    try {
-      const { error } = await supabase
-        .from('dekontlar')
-        .update({ onay_durumu: action })
-        .eq('id', dekontId)
-
-      if (error) {
-        alert('Dekont güncellenirken bir hata oluştu: ' + error.message)
-      } else {
-        if (session) {
-          await fetchOgretmenData(session.ogretmen.id)
-        }
-      }
-    } catch (error) {
-      console.error('Dekont güncelleme hatası:', error)
-      alert('Bir hata oluştu.')
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -130,50 +99,44 @@ export default function OgretmenPanelPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="bg-white/80 backdrop-blur-lg shadow-sm border-b border-blue-100">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="flex justify-between items-center py-3 sm:py-4">
-            <div className="flex items-center min-w-0 flex-1">
-              <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg mr-2 sm:mr-4 flex-shrink-0">
-                <User className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-sm sm:text-xl font-bold text-gray-900 truncate">
-                  {session.ogretmen.ad} {session.ogretmen.soyad}
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600">Koordinatör Öğretmen</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 flex-shrink-0"
-            >
-              <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Çıkış Yap</span>
-              <span className="sm:hidden">Çıkış</span>
-            </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              Hoş Geldiniz, {session.ogretmen.ad} {session.ogretmen.soyad}
+            </h1>
+            <p className="mt-1 text-sm sm:text-base text-gray-600">
+              İşletme ve dekont bilgilerini buradan takip edebilirsiniz.
+            </p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all duration-200"
+          >
+            <LogOut className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+            Çıkış Yap
+          </button>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
           <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-blue-100 p-4 sm:p-6">
             <div className="flex items-center">
               <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 mr-3 sm:mr-4 flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 leading-tight">Koordinatörlük Yaptığım İşletmeler</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Toplam İşletme</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">{isletmeler.length}</p>
               </div>
             </div>
           </div>
-          
-          <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-purple-100 p-4 sm:p-6">
+
+          <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-yellow-100 p-4 sm:p-6">
             <div className="flex items-center">
-              <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 mr-3 sm:mr-4 flex-shrink-0" />
+              <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600 mr-3 sm:mr-4 flex-shrink-0" />
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Toplam Dekont</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{dekontlar.length}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Bekleyen Dekontlar</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                  {dekontlar.filter((d: any) => d.onay_durumu === 'bekliyor').length}
+                </p>
               </div>
             </div>
           </div>
@@ -192,154 +155,166 @@ export default function OgretmenPanelPage() {
         </div>
 
         <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-blue-100 overflow-hidden">
-          <div className="border-b border-gray-200">
-            <nav className="flex overflow-x-auto">
-              <button
-                onClick={() => setSelectedTab('isletmeler')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                  selectedTab === 'isletmeler'
-                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 inline" />
-                İşletmelerim
-              </button>
-              <button
-                onClick={() => setSelectedTab('dekontlar')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                  selectedTab === 'dekontlar'
-                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 inline" />
-                <span className="hidden sm:inline">Dekontlar </span>
-                <span className="sm:hidden">Dekont </span>
-                ({dekontlar.filter((d: any) => d.onay_durumu === 'bekliyor').length} bekliyor)
-              </button>
-            </nav>
-          </div>
-
-          <div className="p-3 sm:p-6">
-            {selectedTab === 'isletmeler' ? (
-              <div className="space-y-3 sm:space-y-4">
-                {isletmeler.length === 0 ? (
-                  <div className="text-center py-8 sm:py-12">
-                    <Building2 className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
-                      Henüz koordinatörlük yaptığınız işletme yok
-                    </h3>
-                    <p className="text-sm text-gray-500 px-4">
-                      Okul yönetimi size işletme atadığında burada görünecek.
-                    </p>
-                  </div>
-                ) : (
-                  isletmeler.map((isletme: any) => (
-                    <div key={isletme.id} className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 sm:p-6 border border-blue-200">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">
-                            {isletme.ad}
-                          </h3>
-                          <div className="grid grid-cols-1 gap-2 sm:gap-4">
-                            <div className="flex items-center text-gray-600">
-                              <User className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
-                              <span className="text-xs sm:text-sm truncate">Yetkili: {isletme.yetkili_kisi}</span>
-                            </div>
-                            {isletme.telefon && (
-                              <div className="flex items-center text-gray-600">
-                                <Phone className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
-                                <span className="text-xs sm:text-sm">{isletme.telefon}</span>
-                              </div>
-                            )}
-                            {isletme.email && (
-                              <div className="flex items-center text-gray-600">
-                                <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
-                                <span className="text-xs sm:text-sm truncate">{isletme.email}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <div className="bg-white rounded-lg px-3 py-2 shadow-sm">
-                            <p className="text-xs text-gray-500">PIN Kodu</p>
-                            <p className="font-mono font-bold text-blue-600 text-sm sm:text-base">{isletme.pin}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+          <div className="p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">İşletme ve Dekont Listesi</h2>
+            
+            {isletmeler.length === 0 ? (
+              <div className="text-center py-8">
+                <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">Henüz atanmış işletmeniz bulunmuyor.</p>
               </div>
             ) : (
-              <div className="space-y-3 sm:space-y-4">
-                {dekontlar.length === 0 ? (
-                  <div className="text-center py-8 sm:py-12">
-                    <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
-                      Henüz dekont bulunmuyor
-                    </h3>
-                    <p className="text-sm text-gray-500 px-4">
-                      İşletmeler dekont gönderdiğinde burada görünecek.
-                    </p>
-                  </div>
-                ) : (
-                  dekontlar.map((dekont: any) => (
-                    <div key={dekont.id} className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3 sm:mb-4">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
-                            {dekont.stajlar?.ogrenciler?.ad} {dekont.stajlar?.ogrenciler?.soyad}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-gray-600">
-                            Ödeme Tarihi: {new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR')}
-                          </p>
-                        </div>
-                        <div className="flex flex-col sm:text-right">
-                          <p className="text-lg sm:text-xl font-bold text-gray-900">
-                            ₺{dekont.miktar?.toLocaleString('tr-TR')}
-                          </p>
-                          <div className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium border self-start sm:self-end ${
-                            dekont.onay_durumu === 'onaylandi' ? 'bg-green-100 text-green-800 border-green-200' :
-                            dekont.onay_durumu === 'reddedildi' ? 'bg-red-100 text-red-800 border-red-200' :
-                            'bg-yellow-100 text-yellow-800 border-yellow-200'
-                          }`}>
-                            {dekont.onay_durumu === 'onaylandi' ? <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> :
-                             dekont.onay_durumu === 'reddedildi' ? <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> :
-                             <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />}
-                            {dekont.onay_durumu === 'onaylandi' ? 'Onaylandı' :
-                             dekont.onay_durumu === 'reddedildi' ? 'Reddedildi' : 'Bekliyor'}
-                          </div>
-                        </div>
+              <div className="space-y-6">
+                {isletmeler.map((isletme: any) => (
+                  <div key={isletme.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="min-w-0">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+                          {isletme.ad}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600">
+                          {isletme.adres}
+                        </p>
                       </div>
-                      
-                      {dekont.onay_durumu === 'bekliyor' && (
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <button
-                            onClick={() => handleDekontAction(dekont.id, 'onaylandi')}
-                            className="flex-1 inline-flex items-center justify-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg hover:bg-green-700 transition-all duration-200"
-                          >
-                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                            Onayla
-                          </button>
-                          <button
-                            onClick={() => handleDekontAction(dekont.id, 'reddedildi')}
-                            className="flex-1 inline-flex items-center justify-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 transition-all duration-200"
-                          >
-                            <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                            Reddet
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${isletme.telefon}`}
+                          className="inline-flex items-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                        >
+                          <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </a>
+                        <a
+                          href={`mailto:${isletme.email}`}
+                          className="inline-flex items-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                        >
+                          <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </a>
+                      </div>
                     </div>
-                  ))
-                )}
+
+                    <div className="space-y-3">
+                      {dekontlar
+                        .filter((d: any) => d.isletme_id === isletme.id)
+                        .map((dekont: any) => (
+                          <div
+                            key={dekont.id}
+                            className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-all duration-200 cursor-pointer"
+                            onClick={() => {
+                              setSelectedDekont(dekont)
+                              setDekontDetailModalOpen(true)
+                            }}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3 sm:mb-4">
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+                                  {dekont.stajlar?.ogrenciler?.ad} {dekont.stajlar?.ogrenciler?.soyad}
+                                </h3>
+                                <p className="text-xs sm:text-sm text-gray-600">
+                                  Ödeme Tarihi: {new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR')}
+                                </p>
+                              </div>
+                              <div className="flex flex-col sm:text-right">
+                                <p className="text-lg sm:text-xl font-bold text-gray-900">
+                                  ₺{dekont.miktar?.toLocaleString('tr-TR')}
+                                </p>
+                                <div className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium border self-start sm:self-end ${
+                                  dekont.onay_durumu === 'onaylandi' ? 'bg-green-100 text-green-800 border-green-200' :
+                                  dekont.onay_durumu === 'reddedildi' ? 'bg-red-100 text-red-800 border-red-200' :
+                                  'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                }`}>
+                                  {dekont.onay_durumu === 'onaylandi' ? <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> :
+                                   dekont.onay_durumu === 'reddedildi' ? <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> :
+                                   <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />}
+                                  {dekont.onay_durumu === 'onaylandi' ? 'Onaylandı' :
+                                   dekont.onay_durumu === 'reddedildi' ? 'Reddedildi' : 'Bekliyor'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Dekont Detay Modalı */}
+      <Modal
+        isOpen={dekontDetailModalOpen}
+        onClose={() => setDekontDetailModalOpen(false)}
+        title="Dekont Detayları"
+        size="lg"
+      >
+        {selectedDekont && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Öğrenci Bilgileri</h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <User className="h-5 w-5 text-gray-400 mr-2" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {selectedDekont.stajlar?.ogrenciler?.ad} {selectedDekont.stajlar?.ogrenciler?.soyad}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Ödeme Bilgileri</h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Miktar:</span>
+                      <span className="text-sm font-medium text-gray-900">₺{selectedDekont.miktar?.toLocaleString('tr-TR')}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Ödeme Tarihi:</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {new Date(selectedDekont.odeme_tarihi).toLocaleDateString('tr-TR')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Son Ödeme Tarihi:</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {new Date(selectedDekont.odeme_son_tarihi).toLocaleDateString('tr-TR')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Onay Durumu</h4>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center">
+                  {selectedDekont.onay_durumu === 'onaylandi' ? (
+                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                  ) : selectedDekont.onay_durumu === 'reddedildi' ? (
+                    <XCircle className="h-5 w-5 text-red-500 mr-2" />
+                  ) : (
+                    <Clock className="h-5 w-5 text-yellow-500 mr-2" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {selectedDekont.onay_durumu === 'onaylandi' ? 'Onaylandı' :
+                     selectedDekont.onay_durumu === 'reddedildi' ? 'Reddedildi' : 'Bekliyor'}
+                  </span>
+                </div>
+                {selectedDekont.onay_durumu === 'reddedildi' && selectedDekont.red_nedeni && (
+                  <div className="mt-2">
+                    <span className="text-sm text-gray-500">Red Nedeni:</span>
+                    <p className="text-sm font-medium text-red-600 mt-1">{selectedDekont.red_nedeni}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 } 

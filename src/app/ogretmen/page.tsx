@@ -6,6 +6,7 @@ import { GraduationCap, Users, FileText, LogOut, Building2, Upload, Eye, Filter,
 import { supabase } from '@/lib/supabase'
 import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
 import Modal from '@/components/ui/Modal'
+import DekontBildirim from '@/components/ui/DekontBildirim'
 
 interface Ogretmen {
   id: number
@@ -293,6 +294,7 @@ export default function OgretmenPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DekontBildirim />
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

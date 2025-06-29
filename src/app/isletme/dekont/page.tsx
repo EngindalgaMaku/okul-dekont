@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Building2, Lock, User, Upload, Calendar, CreditCard, FileText, ArrowLeft, Search, Eye, Filter, CheckCircle, XCircle, Clock, Plus, Download, Trash2 } from 'lucide-react'
+import { Building2, Lock, User, Upload, Calendar, CreditCard, FileText, ArrowLeft, Search, Eye, Filter, CheckCircle, XCircle, Clock, Plus, Download, Trash2, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { uploadFile, validateFile } from '@/lib/storage'
 import Modal from '@/components/ui/Modal'
@@ -27,8 +27,12 @@ interface Dekont {
   id: number
   miktar: number
   odeme_tarihi: string
+  odeme_son_tarihi: string
+  ay: number
+  yil: number
   dekont_dosyasi?: string
   onay_durumu: 'bekliyor' | 'onaylandi' | 'reddedildi'
+  red_nedeni?: string
   created_at: string
   ogrenciler?: { ad: string; soyad: string; sinif: string }
   ogretmenler?: { ad: string; soyad: string }
@@ -75,10 +79,14 @@ export default function IsletmeDekontPage() {
   const [selectedBelge, setSelectedBelge] = useState<Belge | null>(null)
 
   // Dekont form verileri
-  const [selectedStaj, setSelectedStaj] = useState('')
-  const [miktar, setMiktar] = useState('')
-  const [odemeTarihi, setOdemeTarihi] = useState('')
-  const [dekontDosyasi, setDekontDosyasi] = useState<File | null>(null)
+  const [dekontFormData, setDekontFormData] = useState({
+    tarih: '',
+    ay: new Date().getMonth() + 1,
+    yil: new Date().getFullYear(),
+    aciklama: '',
+    tutar: '',
+    dosya: null as File | null
+  })
 
   // Belge form verileri
   const [belgeFormData, setBelgeFormData] = useState({
@@ -261,9 +269,9 @@ export default function IsletmeDekontPage() {
       let dosyaPath = null
 
       // Dosya yükleme işlemi
-      if (dekontDosyasi) {
+      if (dekontFormData.dosya) {
         // Dosya validasyonu
-        const validation = validateFile(dekontDosyasi, 10, ['pdf', 'jpg', 'jpeg', 'png'])
+        const validation = validateFile(dekontFormData.dosya, 10, ['pdf', 'jpg', 'jpeg', 'png'])
         if (!validation.valid) {
           alert(validation.error)
           setLoading(false)
@@ -271,7 +279,7 @@ export default function IsletmeDekontPage() {
         }
 
         // Dosyayı Supabase Storage'a yükle
-        const uploadResult = await uploadFile('dekontlar', dekontDosyasi, 'dekont_')
+        const uploadResult = await uploadFile('dekontlar', dekontFormData.dosya, 'dekont_')
         if (!uploadResult) {
           alert('Dosya yüklenirken hata oluştu!')
           setLoading(false)
@@ -285,10 +293,12 @@ export default function IsletmeDekontPage() {
       const { error } = await supabase
         .from('dekontlar')
         .insert({
-          staj_id: parseInt(selectedStaj),
+          staj_id: parseInt(dekontFormData.aciklama),
           isletme_id: selectedIsletme?.id,
-          miktar: parseFloat(miktar),
-          odeme_tarihi: odemeTarihi,
+          miktar: parseFloat(dekontFormData.tutar),
+          odeme_tarihi: dekontFormData.tarih,
+          ay: dekontFormData.ay,
+          yil: dekontFormData.yil,
           dekont_dosyasi: dosyaUrl,
           dekont_dosya_path: dosyaPath,
           onay_durumu: 'bekliyor'
@@ -298,10 +308,14 @@ export default function IsletmeDekontPage() {
 
       setSubmitSuccess(true)
       // Form sıfırla
-      setSelectedStaj('')
-      setMiktar('')
-      setOdemeTarihi('')
-      setDekontDosyasi(null)
+      setDekontFormData({
+        tarih: '',
+        ay: new Date().getMonth() + 1,
+        yil: new Date().getFullYear(),
+        aciklama: '',
+        tutar: '',
+        dosya: null
+      })
       
       // Dekont listesini yenile
       fetchDekontlar()
@@ -622,88 +636,149 @@ export default function IsletmeDekontPage() {
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                        Stajyer Öğrenci
-                      </label>
-                      <select
-                        value={selectedStaj}
-                        onChange={(e) => setSelectedStaj(e.target.value)}
-                        required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Öğrenci
+                        </label>
+                        <select
+                          value={dekontFormData.aciklama}
+                          onChange={(e) => setDekontFormData({...dekontFormData, aciklama: e.target.value})}
+                          className="block w-full border border-gray-300 rounded-lg shadow-sm p-3"
+                          required
+                        >
+                          <option value="">Öğrenci Seçin</option>
+                          {stajlar.map((staj: any) => (
+                            <option key={staj.id} value={staj.id}>
+                              {staj.ogrenciler.ad} {staj.ogrenciler.soyad} - {staj.ogrenciler.sinif}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Ödeme Tarihi
+                        </label>
+                        <input
+                          type="date"
+                          value={dekontFormData.tarih}
+                          onChange={(e) => setDekontFormData({...dekontFormData, tarih: e.target.value})}
+                          className="block w-full border border-gray-300 rounded-lg shadow-sm p-3"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Ödeme Dönemi
+                        </label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <select
+                            value={dekontFormData.ay}
+                            onChange={(e) => setDekontFormData({...dekontFormData, ay: parseInt(e.target.value)})}
+                            className="block w-full border border-gray-300 rounded-lg shadow-sm p-3"
+                            required
+                          >
+                            <option value="">Ay Seçin</option>
+                            <option value="1">Ocak</option>
+                            <option value="2">Şubat</option>
+                            <option value="3">Mart</option>
+                            <option value="4">Nisan</option>
+                            <option value="5">Mayıs</option>
+                            <option value="6">Haziran</option>
+                            <option value="7">Temmuz</option>
+                            <option value="8">Ağustos</option>
+                            <option value="9">Eylül</option>
+                            <option value="10">Ekim</option>
+                            <option value="11">Kasım</option>
+                            <option value="12">Aralık</option>
+                          </select>
+                          <input
+                            type="number"
+                            value={dekontFormData.yil}
+                            onChange={(e) => setDekontFormData({...dekontFormData, yil: parseInt(e.target.value)})}
+                            className="block w-full border border-gray-300 rounded-lg shadow-sm p-3"
+                            min="2000"
+                            max="2100"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Ödeme Miktarı (₺)
+                        </label>
+                        <input
+                          type="number"
+                          value={dekontFormData.tutar}
+                          onChange={(e) => setDekontFormData({...dekontFormData, tutar: e.target.value})}
+                          className="block w-full border border-gray-300 rounded-lg shadow-sm p-3"
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          required
+                        />
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Dekont Dosyası
+                        </label>
+                        <div className="flex items-center space-x-4">
+                          <input
+                            type="file"
+                            onChange={(e) => setDekontFormData({...dekontFormData, dosya: e.target.files?.[0] || null})}
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            required
+                          />
+                          {dekontFormData.dosya && (
+                            <span className="text-sm text-gray-500">
+                              {dekontFormData.dosya.name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-sm text-gray-500">
+                          PDF, JPG veya PNG formatında, maksimum 10MB
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end space-x-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDekontFormData({
+                            tarih: '',
+                            ay: new Date().getMonth() + 1,
+                            yil: new Date().getFullYear(),
+                            aciklama: '',
+                            tutar: '',
+                            dosya: null
+                          })
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                       >
-                        <option value="">Öğrenci Seçin</option>
-                        {stajlar.map((staj) => (
-                          <option key={staj.id} value={staj.id}>
-                            {staj.ogrenciler.ad} {staj.ogrenciler.soyad} - {staj.ogrenciler.sinif}
-                          </option>
-                        ))}
-                      </select>
+                        Formu Temizle
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {loading ? (
+                          <span className="flex items-center">
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Yükleniyor...
+                          </span>
+                        ) : (
+                          'Dekont Yükle'
+                        )}
+                      </button>
                     </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                        Ödeme Miktarı (TL)
-                      </label>
-                      <input
-                        type="number"
-                        value={miktar}
-                        onChange={(e) => setMiktar(e.target.value)}
-                        step="0.01"
-                        min="0"
-                        required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                        Ödeme Tarihi
-                      </label>
-                      <input
-                        type="date"
-                        value={odemeTarihi}
-                        onChange={(e) => setOdemeTarihi(e.target.value)}
-                        required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                        Dekont Dosyası
-                      </label>
-                      <input
-                        type="file"
-                        onChange={(e) => setDekontDosyasi(e.target.files?.[0] || null)}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
-                      />
-                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                        PDF, JPG, JPEG veya PNG formatında dosya yükleyebilirsiniz.
-                      </p>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base"
-                    >
-                      {loading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Gönderiliyor...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-2" />
-                          Dekont Gönder
-                        </>
-                      )}
-                    </button>
                   </form>
                 )}
               </div>
@@ -1174,17 +1249,17 @@ export default function IsletmeDekontPage() {
             </label>
             <select
               value={belgeFormData.tur}
-              onChange={(e) => setBelgeFormData({...belgeFormData, tur: e.target.value, customTur: ''})}
+              onChange={(e) => setBelgeFormData({...belgeFormData, tur: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="sozlesme">Sözleşme</option>
               <option value="fesih_belgesi">Fesih Belgesi</option>
               <option value="usta_ogretici_belgesi">Usta Öğretici Belgesi</option>
-              <option value="other">Diğer (Manuel Giriş)</option>
+              <option value="diger">Diğer</option>
             </select>
           </div>
 
-          {belgeFormData.tur === 'other' && (
+          {belgeFormData.tur === 'diger' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Özel Belge Türü
@@ -1194,7 +1269,7 @@ export default function IsletmeDekontPage() {
                 value={belgeFormData.customTur}
                 onChange={(e) => setBelgeFormData({...belgeFormData, customTur: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Belge türünü yazınız"
+                placeholder="Belge türünü girin"
               />
             </div>
           )}

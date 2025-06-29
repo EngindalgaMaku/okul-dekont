@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Briefcase, Plus, Edit, Trash2, User, Users, ArrowLeft, GraduationCap, School } from 'lucide-react'
+import { Briefcase, Plus, Edit, Trash2, User, Users, ArrowLeft, GraduationCap, School, UserCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
@@ -42,6 +42,16 @@ interface Ogrenci {
   staj_durumu?: string
 }
 
+interface Ogretmen {
+  id: number
+  ad: string
+  soyad: string
+  email: string
+  alan_id: number
+  telefon?: string
+  is_koordinator?: boolean
+}
+
 export default function AlanDetayPage() {
   const router = useRouter()
   const params = useParams()
@@ -50,8 +60,9 @@ export default function AlanDetayPage() {
   const [alan, setAlan] = useState<Alan | null>(null)
   const [siniflar, setSiniflar] = useState<Sinif[]>([])
   const [ogrenciler, setOgrenciler] = useState<Ogrenci[]>([])
+  const [ogretmenler, setOgretmenler] = useState<Ogretmen[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('siniflar')
+  const [activeTab, setActiveTab] = useState('ogretmenler')
   const [selectedSinifFilter, setSelectedSinifFilter] = useState('')
   const [filteredOgrenciler, setFilteredOgrenciler] = useState<Ogrenci[]>([])
 
@@ -121,6 +132,7 @@ export default function AlanDetayPage() {
       fetchAlanDetay()
       fetchSiniflar()
       fetchOgrenciler()
+      fetchOgretmenler()
     }
   }, [alanId])
 
@@ -206,6 +218,21 @@ export default function AlanDetayPage() {
      }))
 
     setOgrenciler(ogrencilerWithIsletme)
+  }
+
+  const fetchOgretmenler = async () => {
+    const { data, error } = await supabase
+      .from('ogretmenler')
+      .select('*')
+      .eq('alan_id', alanId)
+      .order('ad', { ascending: true })
+
+    if (error) {
+      console.error('Öğretmenler alınırken hata:', error)
+      return
+    }
+
+    setOgretmenler(data || [])
   }
 
   const handleSinifEkle = async () => {
@@ -599,6 +626,19 @@ export default function AlanDetayPage() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex">
               <button
+                onClick={() => setActiveTab('ogretmenler')}
+                className={`py-4 px-6 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                  activeTab === 'ogretmenler'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center">
+                  <UserCheck className="h-5 w-5 mr-2" />
+                  Öğretmenler ({ogretmenler.length})
+                </div>
+              </button>
+              <button
                 onClick={() => setActiveTab('siniflar')}
                 className={`py-4 px-6 text-sm font-medium border-b-2 transition-colors duration-200 ${
                   activeTab === 'siniflar'
@@ -628,7 +668,62 @@ export default function AlanDetayPage() {
           </div>
 
           <div className="p-6">
-            {activeTab === 'siniflar' ? (
+            {activeTab === 'ogretmenler' ? (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Öğretmenler</h2>
+                </div>
+
+                {ogretmenler.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {ogretmenler.map((ogretmen) => (
+                      <div key={ogretmen.id} 
+                        onClick={() => router.push(`/admin/ogretmenler/${ogretmen.id}`)}
+                        className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer hover:border-indigo-300"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                              <UserCheck className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900 text-lg">
+                                {ogretmen.ad} {ogretmen.soyad}
+                              </h3>
+                              {ogretmen.is_koordinator && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
+                                  ⭐ Koordinatör
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <span className="font-medium mr-2">📧</span>
+                            {ogretmen.email}
+                          </div>
+                          
+                          {ogretmen.telefon && (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <span className="font-medium mr-2">📞</span>
+                              {ogretmen.telefon}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <UserCheck className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">Henüz öğretmen yok</h3>
+                    <p className="mt-1 text-sm text-gray-500">Bu alana henüz öğretmen atanmamış.</p>
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'siniflar' ? (
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">Sınıflar</h2>
@@ -751,12 +846,11 @@ export default function AlanDetayPage() {
             ) : (
               <div>
                 <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center space-x-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Öğrenciler</h2>
+                  <div className="flex-1">
                     {selectedSinifFilter && (
-                      <div className="flex items-center space-x-2">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
-                          {selectedSinifFilter} Sınıfı
+                      <div className="inline-flex items-center px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-sm mb-4">
+                        <span className="mr-2">
+                          Filtrelenen Sınıf: {selectedSinifFilter}
                         </span>
                         <button
                           onClick={() => setSelectedSinifFilter('')}
@@ -915,107 +1009,79 @@ export default function AlanDetayPage() {
         </div>
       </div>
 
+      {/* Modaller */}
       {/* Sınıf Ekleme Modalı */}
       <Modal
         isOpen={sinifModalOpen}
-        onClose={() => {
-          setSinifModalOpen(false)
-          setSinifFormData({ ad: '', dal: '', isletme_gunleri: '', okul_gunleri: '', haftalik_program: { pazartesi: 'bos', sali: 'bos', carsamba: 'bos', persembe: 'bos', cuma: 'bos' } })
-        }}
+        onClose={() => setSinifModalOpen(false)}
         title="Yeni Sınıf Ekle"
         size="lg"
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sınıf Adı *
-              </label>
-              <input
-                type="text"
-                value={sinifFormData.ad}
-                onChange={(e) => setSinifFormData({...sinifFormData, ad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Örn: 12-A"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dal
-              </label>
-              <input
-                type="text"
-                value={sinifFormData.dal}
-                onChange={(e) => setSinifFormData({...sinifFormData, dal: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Örn: Web Programcılığı"
-              />
-            </div>
-          </div>
-          
-          {/* Haftalık Program */}
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sınıf Adı
+            </label>
+            <input
+              type="text"
+              value={sinifFormData.ad}
+              onChange={(e) => setSinifFormData({...sinifFormData, ad: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Örn: 11-A"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dal (Opsiyonel)
+            </label>
+            <input
+              type="text"
+              value={sinifFormData.dal}
+              onChange={(e) => setSinifFormData({...sinifFormData, dal: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Örn: Bilişim Teknolojileri"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Haftalık Program
+            </label>
             <HaftalikProgramBileseni
               program={sinifFormData.haftalik_program}
               onChange={(yeniProgram) => setSinifFormData({...sinifFormData, haftalik_program: yeniProgram})}
             />
-          </div>
-
-          {/* Hızlı Seçim Butonları */}
-          <div className="space-y-3">
-            <div className="text-sm font-medium text-gray-700">Hızlı Program Seçimi</div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const program: HaftalikProgram = {
-                    pazartesi: 'isletme',
-                    sali: 'isletme', 
-                    carsamba: 'isletme',
-                    persembe: 'okul',
-                    cuma: 'okul'
-                  }
-                  setSinifFormData({
-                    ...sinifFormData, 
-                    haftalik_program: program,
-                    isletme_gunleri: 'Pazartesi-Salı-Çarşamba',
-                    okul_gunleri: 'Perşembe-Cuma'
-                  })
-                }}
-                className="px-3 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-sm"
-              >
-                🏢 Pazartesi-Çarşamba İşletme<br/>🏫 Perşembe-Cuma Okul
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const program: HaftalikProgram = {
-                    pazartesi: 'okul',
-                    sali: 'okul',
-                    carsamba: 'okul', 
-                    persembe: 'isletme',
-                    cuma: 'isletme'
-                  }
-                  setSinifFormData({
-                    ...sinifFormData,
-                    haftalik_program: program,
-                    isletme_gunleri: 'Perşembe-Cuma',
-                    okul_gunleri: 'Pazartesi-Salı-Çarşamba'
-                  })
-                }}
-                className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm"
-              >
-                🏫 Pazartesi-Çarşamba Okul<br/>🏢 Perşembe-Cuma İşletme
-              </button>
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-gray-500">Hızlı Program Seçimi:</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    const program: HaftalikProgram = {
+                      pazartesi: 'okul',
+                      sali: 'okul',
+                      carsamba: 'okul',
+                      persembe: 'isletme',
+                      cuma: 'isletme'
+                    }
+                    setSinifFormData({
+                      ...sinifFormData,
+                      haftalik_program: program,
+                      isletme_gunleri: 'Perşembe-Cuma',
+                      okul_gunleri: 'Pazartesi-Salı-Çarşamba'
+                    })
+                  }}
+                  className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                >
+                  🏫 Pazartesi-Çarşamba Okul<br/>🏢 Perşembe-Cuma İşletme
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
-              onClick={() => {
-                setSinifModalOpen(false)
-                setSinifFormData({ ad: '', dal: '', isletme_gunleri: '', okul_gunleri: '', haftalik_program: { pazartesi: 'bos', sali: 'bos', carsamba: 'bos', persembe: 'bos', cuma: 'bos' } })
-              }}
+              onClick={() => setSinifModalOpen(false)}
               className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
               İptal
@@ -1039,86 +1105,64 @@ export default function AlanDetayPage() {
         size="lg"
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sınıf Adı *
-              </label>
-              <input
-                type="text"
-                value={editSinifFormData.ad}
-                onChange={(e) => setEditSinifFormData({...editSinifFormData, ad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dal
-              </label>
-              <input
-                type="text"
-                value={editSinifFormData.dal}
-                onChange={(e) => setEditSinifFormData({...editSinifFormData, dal: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Örn: Web Programcılığı"
-              />
-            </div>
-          </div>
-          
-          {/* Haftalık Program */}
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sınıf Adı
+            </label>
+            <input
+              type="text"
+              value={editSinifFormData.ad}
+              onChange={(e) => setEditSinifFormData({...editSinifFormData, ad: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Örn: 11-A"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dal (Opsiyonel)
+            </label>
+            <input
+              type="text"
+              value={editSinifFormData.dal}
+              onChange={(e) => setEditSinifFormData({...editSinifFormData, dal: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Örn: Bilişim Teknolojileri"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Haftalık Program
+            </label>
             <HaftalikProgramBileseni
               program={editSinifFormData.haftalik_program}
               onChange={(yeniProgram) => setEditSinifFormData({...editSinifFormData, haftalik_program: yeniProgram})}
             />
-          </div>
-
-          {/* Hızlı Seçim Butonları */}
-          <div className="space-y-3">
-            <div className="text-sm font-medium text-gray-700">Hızlı Program Seçimi</div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const program: HaftalikProgram = {
-                    pazartesi: 'isletme',
-                    sali: 'isletme', 
-                    carsamba: 'isletme',
-                    persembe: 'okul',
-                    cuma: 'okul'
-                  }
-                  setEditSinifFormData({
-                    ...editSinifFormData, 
-                    haftalik_program: program,
-                    isletme_gunleri: 'Pazartesi-Salı-Çarşamba',
-                    okul_gunleri: 'Perşembe-Cuma'
-                  })
-                }}
-                className="px-3 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-sm"
-              >
-                🏢 Pazartesi-Çarşamba İşletme<br/>🏫 Perşembe-Cuma Okul
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const program: HaftalikProgram = {
-                    pazartesi: 'okul',
-                    sali: 'okul',
-                    carsamba: 'okul', 
-                    persembe: 'isletme',
-                    cuma: 'isletme'
-                  }
-                  setEditSinifFormData({
-                    ...editSinifFormData,
-                    haftalik_program: program,
-                    isletme_gunleri: 'Perşembe-Cuma',
-                    okul_gunleri: 'Pazartesi-Salı-Çarşamba'
-                  })
-                }}
-                className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm"
-              >
-                🏫 Pazartesi-Çarşamba Okul<br/>🏢 Perşembe-Cuma İşletme
-              </button>
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-gray-500">Hızlı Program Seçimi:</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    const program: HaftalikProgram = {
+                      pazartesi: 'okul',
+                      sali: 'okul',
+                      carsamba: 'okul',
+                      persembe: 'isletme',
+                      cuma: 'isletme'
+                    }
+                    setEditSinifFormData({
+                      ...editSinifFormData,
+                      haftalik_program: program,
+                      isletme_gunleri: 'Perşembe-Cuma',
+                      okul_gunleri: 'Pazartesi-Salı-Çarşamba'
+                    })
+                  }}
+                  className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                >
+                  🏫 Pazartesi-Çarşamba Okul<br/>🏢 Perşembe-Cuma İşletme
+                </button>
+              </div>
             </div>
           </div>
 

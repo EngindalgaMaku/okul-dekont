@@ -10,9 +10,14 @@ import ConfirmModal from '@/components/ui/ConfirmModal'
 interface Dekont {
     id: number;
     tarih: string;
-    saat_sayisi: number;
+    miktar: number;
+    ay: number;
+    yil: number;
+    odeme_tarihi: string;
+    odeme_son_tarihi: string;
     aciklama?: string;
     onay_durumu: 'bekliyor' | 'onaylandi' | 'reddedildi';
+    red_nedeni?: string;
     created_at: string;
     ogrenciler?: { ad: string; soyad: string };
     isletmeler?: { ad: string };
@@ -410,14 +415,55 @@ export default function DekontYonetimiPage() {
               </div>
             </div>
 
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Onay Durumu</h4>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusClass(selectedDekont.onay_durumu)}`}>
-                  {getStatusIcon(selectedDekont.onay_durumu)}
-                  <span className="ml-2">{getStatusText(selectedDekont.onay_durumu)}</span>
-                </span>
-              </div>
+            <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-700">Ödeme Bilgileri</h4>
+                        <div className="mt-2 bg-gray-50 rounded-lg p-4">
+                            <div className="space-y-2">
+                                <div>
+                                    <span className="text-sm text-gray-500">Ödeme Tarihi:</span>
+                                    <p className="text-sm font-medium">{new Date(selectedDekont.odeme_tarihi).toLocaleDateString('tr-TR')}</p>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-gray-500">Son Ödeme Tarihi:</span>
+                                    <p className="text-sm font-medium">{new Date(selectedDekont.odeme_son_tarihi).toLocaleDateString('tr-TR')}</p>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-gray-500">Dönem:</span>
+                                    <p className="text-sm font-medium">{selectedDekont.ay}/{selectedDekont.yil}</p>
+                                </div>
+                                <div>
+                                    <span className="text-sm text-gray-500">Miktar:</span>
+                                    <p className="text-sm font-medium">{selectedDekont.miktar.toLocaleString('tr-TR')} ₺</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-700">Onay Durumu</h4>
+                        <div className="mt-2 bg-gray-50 rounded-lg p-4">
+                            <div className="space-y-2">
+                                <div className="flex items-center">
+                                    {getStatusIcon(selectedDekont.onay_durumu)}
+                                    <span className="ml-2 text-sm font-medium">{getStatusText(selectedDekont.onay_durumu)}</span>
+                                </div>
+                                {selectedDekont.onay_durumu === 'reddedildi' && selectedDekont.red_nedeni && (
+                                    <div>
+                                        <span className="text-sm text-gray-500">Red Nedeni:</span>
+                                        <p className="text-sm font-medium text-red-600">{selectedDekont.red_nedeni}</p>
+                                    </div>
+                                )}
+                                {selectedDekont.ogretmenler && (
+                                    <div>
+                                        <span className="text-sm text-gray-500">İşlemi Yapan:</span>
+                                        <p className="text-sm font-medium">{selectedDekont.ogretmenler.ad} {selectedDekont.ogretmenler.soyad}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {selectedDekont.aciklama && (
