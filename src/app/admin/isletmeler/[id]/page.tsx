@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { 
   Building, 
   ArrowLeft, 
@@ -85,7 +85,6 @@ interface Staj {
 interface IsletmeAlan {
   id: number;
   alan_id: number;
-  koordinator_ogretmen_id?: number;
   alanlar: {
     id: number;
     ad: string;
@@ -94,6 +93,7 @@ interface IsletmeAlan {
     id: number;
     ad: string;
     soyad: string;
+    alan_id: number;
   } | null;
 }
 
@@ -125,10 +125,32 @@ interface Dekont {
   ogrenci_id?: number;
 }
 
+interface IsletmeData {
+  id: number;
+  ogretmen_id: number | null;
+  ogretmenler: {
+    id: number;
+    ad: string;
+    soyad: string;
+    alan_id: number;
+  } | null;
+}
+
+interface AlanData {
+  id: number;
+  alan_id: number;
+  alanlar: {
+    id: number;
+    ad: string;
+  };
+}
+
 export default function IsletmeDetayPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const params = useParams()
   const isletmeId = params.id as string
+  const referrer = searchParams.get('ref')
 
   const [activeTab, setActiveTab] = useState('temel')
   const [isletme, setIsletme] = useState<Isletme | null>(null)
@@ -302,23 +324,48 @@ export default function IsletmeDetayPage() {
   // Fetch işletme alanları
   async function fetchIsletmeAlanlar() {
     try {
-      const { data, error } = await supabase
+      const { data: isletmeData, error: isletmeError } = await supabase
+        .from('isletmeler')
+        .select(`
+          id,
+          ogretmen_id,
+          ogretmenler (
+            id, ad, soyad, alan_id
+          )
+        `)
+        .eq('id', isletmeId)
+        .single()
+
+      if (isletmeError) {
+        console.error('İşletme bilgileri çekilirken hata:', isletmeError)
+        return
+      }
+
+      const { data: alanData, error: alanError } = await supabase
         .from('isletme_alanlar')
         .select(`
           id,
           alan_id,
-          koordinator_ogretmen_id,
-          alanlar (id, ad),
-          ogretmenler (id, ad, soyad)
+          alanlar (id, ad)
         `)
         .eq('isletme_id', isletmeId)
 
-      if (error) {
-        console.error('İşletme alanları çekilirken hata:', error)
+      if (alanError) {
+        console.error('İşletme alanları çekilirken hata:', alanError)
         return
       }
 
-      setIsletmeAlanlar(data as any || [])
+      const typedIsletmeData = isletmeData as unknown as IsletmeData
+      const typedAlanData = alanData as unknown as AlanData[]
+
+      const transformedData = typedAlanData?.map(item => ({
+        id: item.id,
+        alan_id: item.alan_id,
+        alanlar: item.alanlar,
+        ogretmenler: typedIsletmeData?.ogretmenler?.alan_id === item.alan_id ? typedIsletmeData.ogretmenler : null
+      })) || []
+
+      setIsletmeAlanlar(transformedData)
     } catch (error) {
       console.error('İşletme alanları fetch hatası:', error)
     }
@@ -345,21 +392,27 @@ export default function IsletmeDetayPage() {
 
   // Fetch belgeler
   async function fetchBelgeler() {
+    console.log('Belgeler yükleniyor... İşletme ID:', isletmeId)
     try {
       const { data, error } = await supabase
         .from('belgeler')
-        .select('*')
-        .eq('isletme_id', isletmeId)
-        .order('yukleme_tarihi', { ascending: false })
+        .select('id, isletme_id, ad, tur, dosya_url, yukleme_tarihi')
+        .eq('isletme_id', parseInt(isletmeId))
 
       if (error) {
-        console.error('Belgeler çekilirken hata:', error)
+                  console.error('Belgeler çekilirken hata:', error.message)
+          console.error('Hata detayları:', error)
+        console.log('İşletme ID:', isletmeId)
+        console.log('Sorgu sonucu:', { data, error })
+        setBelgeler([])
         return
       }
 
+      console.log('Belgeler başarıyla yüklendi:', data)
       setBelgeler(data || [])
     } catch (error) {
       console.error('Belge fetch hatası:', error)
+      alert('Belgeler yüklenirken beklenmeyen bir hata oluştu!')
     }
   }
 
@@ -757,11 +810,11 @@ export default function IsletmeDetayPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push(referrer || '/admin/isletmeler')}
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              İşletme Listesi
+              {referrer?.includes('alanlar') ? 'Alan Detayına Dön' : 'İşletme Listesi'}
             </button>
             
             <div className="flex gap-3">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building, Plus, Edit, Trash2, Loader, Save, Phone, Mail, MapPin, User, Key, Search, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Building, Plus, Loader, Phone, Mail, MapPin, User, Key, Save, Search, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
@@ -331,10 +331,10 @@ export default function IsletmeYonetimiPage() {
           </div>
           <button
             onClick={handleAdd}
-            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200"
+            className="inline-flex items-center p-3 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200"
+            title="Yeni İşletme Ekle"
           >
-            <Plus className="h-5 w-5 mr-2" />
-            Yeni İşletme Ekle
+            <Plus className="h-5 w-5" />
           </button>
         </div>
 
@@ -433,11 +433,8 @@ export default function IsletmeYonetimiPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                         İletişim
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        PIN
-                      </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        İşlemler
+                        Detay
                       </th>
                     </tr>
                   </thead>
@@ -481,35 +478,13 @@ export default function IsletmeYonetimiPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          {isletme.pin && (
-                            <div className="inline-flex items-center px-2 py-1 rounded-md bg-indigo-50 text-indigo-700">
-                              <Key className="h-3 w-3 mr-1" />
-                              <span className="text-xs font-mono font-medium">{isletme.pin}</span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-center gap-1">
+                          <div className="flex justify-center">
                             <button 
                               onClick={() => router.push(`/admin/isletmeler/${isletme.id}`)}
                               className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
                               title="İşletme Detayı"
                             >
                               <Building className="h-4 w-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleEdit(isletme)}
-                              className="p-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition-all duration-200"
-                              title="Düzenle"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(isletme)} 
-                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
-                              title="Sil"
-                            >
-                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </td>

@@ -3,8 +3,8 @@ import type { Metadata } from 'next'
 import { EgitimYiliProvider } from '@/lib/context/EgitimYiliContext'
 
 export const metadata: Metadata = {
-  title: 'Hüsniye Özdilek MTAL - Staj Dekont Sistemi',
-  description: 'Hüsniye Özdilek MTAL için staj ve dekont yönetim sistemi',
+  title: 'Hüsniye Özdilek MTAL - Koordinatörlük Yönetimi',
+  description: 'Hüsniye Özdilek MTAL için koordinatörlük yönetim sistemi',
 }
 
 export const viewport = {

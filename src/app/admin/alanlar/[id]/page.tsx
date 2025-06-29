@@ -1,45 +1,52 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { Briefcase, Plus, Edit, Trash2, User, Users, ArrowLeft, GraduationCap, School, UserCheck } from 'lucide-react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { Briefcase, Plus, Edit, Trash2, User, Users, ArrowLeft, GraduationCap, School, UserCheck, Settings, AlertTriangle, Lock, Building2, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
+import Link from 'next/link'
 
 interface Alan {
   id: number
   ad: string
+  aciklama?: string
+  aktif: boolean
 }
 
 interface HaftalikProgram {
   pazartesi: 'okul' | 'isletme' | 'bos'
   sali: 'okul' | 'isletme' | 'bos'
-  carsamba: 'okul' | 'isletme' | 'bos' 
+  carsamba: 'okul' | 'isletme' | 'bos'
   persembe: 'okul' | 'isletme' | 'bos'
   cuma: 'okul' | 'isletme' | 'bos'
 }
 
 interface Sinif {
-  id: number
+  id: string
   ad: string
-  alan_id: number
   dal?: string
+  ogrenci_sayisi?: number
+  alan_id: string
   isletme_gunleri?: string
   okul_gunleri?: string
-  ogrenci_sayisi?: number
   haftalik_program?: HaftalikProgram
 }
 
 interface Ogrenci {
-  id: number
+  id: string
   ad: string
   soyad: string
-  no: string
-  sinif: string
-  alan_id: number
-  isletme_adi?: string
-  staj_durumu?: string
+  ogrenci_no: string
+  sinif_id: string
+}
+
+interface OgrenciFormData {
+  ad: string
+  soyad: string
+  ogrenci_no: string
+  sinif_id: string
 }
 
 interface Ogretmen {
@@ -52,19 +59,30 @@ interface Ogretmen {
   is_koordinator?: boolean
 }
 
+interface Isletme {
+  id: string
+  ad: string
+  adres?: string
+  telefon?: string
+  alan_id: string
+}
+
 export default function AlanDetayPage() {
   const router = useRouter()
   const params = useParams()
   const alanId = params.id as string
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get('tab') || 'ogretmenler'
+  const [activeTab, setActiveTab] = useState(initialTab)
 
   const [alan, setAlan] = useState<Alan | null>(null)
   const [siniflar, setSiniflar] = useState<Sinif[]>([])
   const [ogrenciler, setOgrenciler] = useState<Ogrenci[]>([])
   const [ogretmenler, setOgretmenler] = useState<Ogretmen[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('ogretmenler')
   const [selectedSinifFilter, setSelectedSinifFilter] = useState('')
   const [filteredOgrenciler, setFilteredOgrenciler] = useState<Ogrenci[]>([])
+  const [isletmeler, setIsletmeler] = useState<Isletme[]>([])
 
   // Modal states
   const [sinifModalOpen, setSinifModalOpen] = useState(false)
@@ -112,11 +130,11 @@ export default function AlanDetayPage() {
   })
 
   // Öğrenci form state
-  const [ogrenciFormData, setOgrenciFormData] = useState({
+  const [ogrenciFormData, setOgrenciFormData] = useState<OgrenciFormData>({
     ad: '',
     soyad: '',
-    no: '',
-    sinif: ''
+    ogrenci_no: '',
+    sinif_id: ''
   })
 
   // Öğrenci düzenleme form state
@@ -127,19 +145,43 @@ export default function AlanDetayPage() {
     sinif: ''
   })
 
+  // Alan ayarları için state'ler
+  const [alanAyarlarModal, setAlanAyarlarModal] = useState(false)
+  const [alanSilModal, setAlanSilModal] = useState(false)
+  const [alanFormData, setAlanFormData] = useState({
+    ad: '',
+    aciklama: '',
+    aktif: false
+  })
+
+  // Silme onayı için state
+  const [silmeOnayi, setSilmeOnayi] = useState('')
+  const [silmeHatasi, setSilmeHatasi] = useState('')
+
   useEffect(() => {
     if (alanId) {
       fetchAlanDetay()
       fetchSiniflar()
       fetchOgrenciler()
       fetchOgretmenler()
+      fetchIsletmeler()
     }
   }, [alanId])
+
+  useEffect(() => {
+    if (alan) {
+      setAlanFormData({
+        ad: alan.ad,
+        aciklama: alan.aciklama || '',
+        aktif: alan.aktif || false
+      })
+    }
+  }, [alan])
 
   // Öğrencileri filtreleme useEffect'i
   useEffect(() => {
     if (selectedSinifFilter) {
-      setFilteredOgrenciler(ogrenciler.filter(ogrenci => ogrenci.sinif === selectedSinifFilter))
+      setFilteredOgrenciler(ogrenciler.filter(ogrenci => ogrenci.sinif_id === selectedSinifFilter))
     } else {
       setFilteredOgrenciler(ogrenciler)
     }
@@ -233,6 +275,24 @@ export default function AlanDetayPage() {
     }
 
     setOgretmenler(data || [])
+  }
+
+  const fetchIsletmeler = async () => {
+    const { data, error } = await supabase
+      .from('isletme_alanlar')
+      .select('isletmeler(*)')
+      .eq('alan_id', alanId)
+
+    if (error) {
+      console.error('İşletmeler alınırken hata:', error)
+    } else if (data) {
+      const isletmeListesi = data
+        .map((item: any) => item.isletmeler)
+        .filter(Boolean) as Isletme[]
+      
+      isletmeListesi.sort((a, b) => (a.ad || '').localeCompare(b.ad || ''))
+      setIsletmeler(isletmeListesi)
+    }
   }
 
   const handleSinifEkle = async () => {
@@ -347,36 +407,38 @@ export default function AlanDetayPage() {
 
   const handleOgrenciEkle = async () => {
     if (!ogrenciFormData.ad.trim() || !ogrenciFormData.soyad.trim() || 
-        !ogrenciFormData.no.trim() || !ogrenciFormData.sinif.trim()) {
+        !ogrenciFormData.ogrenci_no.trim() || !ogrenciFormData.sinif_id.trim()) {
       alert('Lütfen tüm alanları doldurun!')
       return
     }
 
-    setSubmitLoading(true)
-    const { error } = await supabase
-      .from('ogrenciler')
-      .insert({
-        ad: ogrenciFormData.ad.trim(),
-        soyad: ogrenciFormData.soyad.trim(),
-        no: ogrenciFormData.no.trim(),
-        sinif: ogrenciFormData.sinif.trim(),
-        alan_id: parseInt(alanId)
-      })
+    try {
+      const { data, error } = await supabase
+        .from('ogrenciler')
+        .insert([
+          {
+            ad: ogrenciFormData.ad.trim(),
+            soyad: ogrenciFormData.soyad.trim(),
+            ogrenci_no: ogrenciFormData.ogrenci_no.trim(),
+            sinif_id: ogrenciFormData.sinif_id,
+            alan_id: params.id
+          }
+        ])
+        .select()
 
-    if (error) {
-      alert('Öğrenci eklenirken hata oluştu: ' + error.message)
-    } else {
+      if (error) throw error
+
+      setOgrenciler([...ogrenciler, data[0]])
       setOgrenciModalOpen(false)
-      setOgrenciFormData({ ad: '', soyad: '', no: '', sinif: '' })
-      fetchOgrenciler()
-      fetchSiniflar() // Sınıf sayılarını güncelle
+      setOgrenciFormData({ ad: '', soyad: '', ogrenci_no: '', sinif_id: '' })
+    } catch (error) {
+      console.error('Öğrenci eklenirken hata:', error)
+      alert('Öğrenci eklenirken bir hata oluştu')
     }
-    setSubmitLoading(false)
   }
 
-  const handleSinifClick = (sinifAd: string) => {
-    setSelectedSinifFilter(sinifAd)
-    setActiveTab('ogrenciler')
+  const handleSinifClick = (sinif: Sinif) => {
+    setSelectedSinif(selectedSinif?.id === sinif.id ? null : sinif)
   }
 
   const handleOgrenciDuzenle = (ogrenci: Ogrenci) => {
@@ -384,8 +446,8 @@ export default function AlanDetayPage() {
     setEditOgrenciFormData({
       ad: ogrenci.ad,
       soyad: ogrenci.soyad,
-      no: ogrenci.no,
-      sinif: ogrenci.sinif
+      no: ogrenci.ogrenci_no,
+      sinif: ogrenci.sinif_id
     })
     setEditOgrenciModal(true)
   }
@@ -542,188 +604,451 @@ export default function AlanDetayPage() {
       }
     }
 
+    const durumMetni = (durum: string) => {
+      switch (durum) {
+        case 'okul': return 'Okul'
+        case 'isletme': return 'İşletme'
+        default: return 'Boş'
+      }
+    }
+
+    const sonrakiDurum = (durum: string): 'okul' | 'isletme' | 'bos' => {
+      switch (durum) {
+        case 'bos': return 'okul'
+        case 'okul': return 'isletme'
+        default: return 'bos'
+      }
+    }
+
     return (
-      <div className="space-y-3">
-        <div className="text-sm font-medium text-gray-700 mb-3">
-          Haftalık Program {!readOnly && '(Tıklayarak değiştirin)'}
-        </div>
-        <div className="grid grid-cols-5 gap-2">
-          {gunler.map(({ key, label }) => (
-            <div key={key} className="text-center">
-              <div className="text-xs font-medium text-gray-600 mb-1">{label}</div>
-              <div 
-                className={`
-                  p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 min-h-[60px] flex flex-col items-center justify-center
-                  ${durumRengi(program[key as keyof HaftalikProgram])}
-                  ${!readOnly ? 'hover:shadow-md transform hover:scale-105' : ''}
-                `}
-                onClick={() => {
-                  if (readOnly) return
-                  const mevcutDurum = program[key as keyof HaftalikProgram]
-                  const yeniDurum = mevcutDurum === 'bos' ? 'okul' : 
-                                  mevcutDurum === 'okul' ? 'isletme' : 'bos'
-                  gunDegistir(key as keyof HaftalikProgram, yeniDurum)
-                }}
-              >
-                <div className="text-lg mb-1">
-                  {durumIkonu(program[key as keyof HaftalikProgram])}
-                </div>
-                <div className="text-xs font-semibold">
-                  {program[key as keyof HaftalikProgram] === 'okul' ? 'Okul' :
-                   program[key as keyof HaftalikProgram] === 'isletme' ? 'İşletme' : 'Boş'}
-                </div>
-              </div>
+      <div className="grid grid-cols-5 gap-4">
+        {gunler.map(({ key, label }) => (
+          <div key={key} className="text-center">
+            <div className="text-sm font-medium text-gray-600 mb-2">
+              {label}
             </div>
-          ))}
-        </div>
-        
-        {!readOnly && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
-            <div className="text-sm text-amber-700">
-              <strong>12. Sınıf Kuralı:</strong> Haftada 2 gün okul, 3 gün işletme olmalıdır.
-            </div>
-            <div className="text-xs text-amber-600 mt-1">
-              Günlere tıklayarak: Boş → Okul → İşletme döngüsü yapabilirsiniz.
-            </div>
+            <button
+              type="button"
+              onClick={() => gunDegistir(key as keyof HaftalikProgram, sonrakiDurum(program[key as keyof HaftalikProgram]))}
+              disabled={readOnly}
+              className={`w-full p-4 rounded-lg border ${durumRengi(program[key as keyof HaftalikProgram])} ${!readOnly && 'hover:opacity-80'} transition-opacity duration-200`}
+            >
+              <div className="text-2xl mb-1">{durumIkonu(program[key as keyof HaftalikProgram])}</div>
+              <div className="text-sm font-medium">{durumMetni(program[key as keyof HaftalikProgram])}</div>
+            </button>
           </div>
-        )}
+        ))}
       </div>
     )
   }
 
-  if (loading || !alan) {
+  // Alan güncelleme fonksiyonu
+  const handleAlanGuncelle = async () => {
+    if (!alanFormData.ad.trim()) {
+      alert('Alan adı boş olamaz!')
+      return
+    }
+
+    try {
+      setSubmitLoading(true)
+      
+      const { data, error } = await supabase
+        .from('alanlar')
+        .update({
+          ad: alanFormData.ad.trim(),
+          aciklama: alanFormData.aciklama?.trim() || null,
+          aktif: alanFormData.aktif
+        })
+        .eq('id', alanId)
+        .select()
+        .single()
+
+      if (error) {
+        throw error
+      }
+
+      // Başarılı güncelleme
+      await fetchAlanDetay()
+      setAlanAyarlarModal(false)
+    } catch (error) {
+      console.error('Alan güncellenirken hata:', error)
+      alert('Alan güncellenirken bir hata oluştu.')
+    } finally {
+      setSubmitLoading(false)
+    }
+  }
+
+  // Alan silme fonksiyonu
+  const handleAlanSil = async () => {
+    try {
+      setSubmitLoading(true)
+
+      // Önce bağlı öğrencileri kontrol et
+      const { data: ogrenciler, error: ogrenciError } = await supabase
+        .from('ogrenciler')
+        .select('id')
+        .eq('alan_id', alanId)
+
+      if (ogrenciError) throw ogrenciError
+
+      if (ogrenciler && ogrenciler.length > 0) {
+        alert(`Bu alanda ${ogrenciler.length} öğrenci kayıtlı. Önce öğrencileri başka bir alana aktarmanız gerekiyor.`)
+        setAlanSilModal(false)
+        return
+      }
+
+      // Öğretmenleri kontrol et
+      const { data: ogretmenler, error: ogretmenError } = await supabase
+        .from('ogretmenler')
+        .select('id, ad, soyad')
+        .eq('alan_id', alanId)
+
+      if (ogretmenError) throw ogretmenError
+
+      if (ogretmenler && ogretmenler.length > 0) {
+        const ogretmenListesi = ogretmenler.map(o => `${o.ad} ${o.soyad}`).join(', ')
+        alert(`Bu alanda ${ogretmenler.length} öğretmen görevli (${ogretmenListesi}). Önce öğretmenleri başka bir alana aktarmanız gerekiyor.`)
+        setAlanSilModal(false)
+        return
+      }
+
+      const { error } = await supabase
+        .from('alanlar')
+        .delete()
+        .eq('id', alanId)
+
+      if (error) throw error
+
+      router.push('/admin/alanlar')
+    } catch (error) {
+      console.error('Alan silinirken hata:', error)
+      alert('Alan silinirken bir hata oluştu.')
+    } finally {
+      setSubmitLoading(false)
+      setAlanSilModal(false)
+    }
+  }
+
+  // Pasif alan kontrolü
+  if (!alan?.aktif) {
     return (
-      <div className="flex justify-center items-center h-32">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Üst Bar */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              {/* Breadcrumb */}
+              <nav className="flex items-center text-sm text-gray-600 mb-2">
+                <Link href="/admin/alanlar" className="hover:text-indigo-600 flex items-center">
+                  Meslek Alanları
+                </Link>
+                <ChevronRight className="h-4 w-4 mx-1" />
+                <span className="text-gray-900">{alan?.ad}</span>
+              </nav>
+
+              <h1 className="text-2xl font-semibold text-gray-900">{alan?.ad}</h1>
+            </div>
+
+            <button
+              onClick={() => setAlanAyarlarModal(true)}
+              className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors duration-200"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Alan Bilgileri */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-red-600 bg-clip-text text-transparent mb-2">
+              {alan?.ad}
+            </h1>
+            <p className="text-gray-600">
+              Alan detayları, sınıflar ve öğrenciler
+            </p>
+            {alan?.aciklama && (
+              <p className="mt-4 text-gray-700 bg-amber-50 rounded-lg p-4">
+                {alan.aciklama}
+              </p>
+            )}
+            
+            {/* Pasif Alan Uyarısı */}
+            <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-6">
+              <div className="flex items-start space-x-4">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <Lock className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-amber-800 mb-2">
+                    Bu Alan Pasif Durumda
+                  </h3>
+                  <p className="text-amber-700 mb-4">
+                    Bu alanda herhangi bir işlem yapabilmek için önce alanı aktif hale getirmeniz gerekmektedir.
+                    Pasif alanlarda öğrenci ve öğretmen işlemleri yapılamaz.
+                  </p>
+                  <button
+                    onClick={() => setAlanAyarlarModal(true)}
+                    className="inline-flex items-center px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors duration-200"
+                  >
+                    <Settings className="h-5 w-5 mr-2" />
+                    Alan Ayarlarını Aç
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Kilitli İçerik */}
+          <div className="bg-gray-50 rounded-2xl border border-gray-200 p-8 text-center opacity-50">
+            <School className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+            <h2 className="text-xl font-semibold text-gray-500 mb-2">
+              Alan İçeriği Kilitli
+            </h2>
+            <p className="text-gray-500 max-w-md mx-auto">
+              Bu alandaki öğretmen, sınıf ve öğrenci bilgilerine erişmek için 
+              önce alanı aktif hale getirmeniz gerekmektedir.
+            </p>
+          </div>
+        </div>
+
+        {/* Modalları ekle */}
+        <Modal
+          isOpen={alanAyarlarModal}
+          onClose={() => setAlanAyarlarModal(false)}
+          title="Alan Ayarları"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Alan Adı
+              </label>
+              <input
+                type="text"
+                value={alanFormData.ad}
+                onChange={(e) => setAlanFormData({ ...alanFormData, ad: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Açıklama
+              </label>
+              <textarea
+                value={alanFormData.aciklama}
+                onChange={(e) => setAlanFormData({ ...alanFormData, aciklama: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="alan-aktif"
+                checked={alanFormData.aktif}
+                onChange={(e) => setAlanFormData({ ...alanFormData, aktif: e.target.checked })}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label htmlFor="alan-aktif" className="ml-2 block text-sm text-gray-700">
+                Alan aktif
+              </label>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <button
+                onClick={() => setAlanSilModal(true)}
+                className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors duration-200"
+              >
+                Alanı Sil
+              </button>
+              <div className="space-x-2">
+                <button
+                  onClick={() => setAlanAyarlarModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleAlanGuncelle}
+                  disabled={submitLoading || !alanFormData.ad.trim()}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
+                >
+                  {submitLoading ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+
+        <Modal
+          isOpen={alanSilModal}
+          onClose={() => {
+            setAlanSilModal(false)
+            setSilmeOnayi('')
+            setSilmeHatasi('')
+          }}
+          title="Alanı Sil"
+        >
+          <div className="space-y-4">
+            <div className="bg-red-50 text-red-800 p-4 rounded-lg">
+              <div className="flex items-center mb-2">
+                <AlertTriangle className="h-5 w-5 mr-2" />
+                <span className="font-semibold">Dikkat!</span>
+              </div>
+              <p>Bu alan kalıcı olarak silinecek ve bu işlem geri alınamaz.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Onay
+              </label>
+              <p className="text-sm text-gray-600 mb-2">
+                Silme işlemini onaylamak için alan adını <span className="font-mono bg-gray-100 px-1 rounded">{alan?.ad}</span> yazın:
+              </p>
+              <input
+                type="text"
+                value={silmeOnayi}
+                onChange={(e) => {
+                  setSilmeOnayi(e.target.value)
+                  setSilmeHatasi('')
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Alan adını yazın"
+              />
+              {silmeHatasi && (
+                <p className="mt-1 text-sm text-red-600">{silmeHatasi}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <button
+                onClick={() => {
+                  setAlanSilModal(false)
+                  setSilmeOnayi('')
+                  setSilmeHatasi('')
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => {
+                  if (silmeOnayi !== alan?.ad) {
+                    setSilmeHatasi('Alan adı eşleşmiyor')
+                    return
+                  }
+                  handleAlanSil()
+                }}
+                disabled={!silmeOnayi || silmeOnayi !== alan?.ad || submitLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitLoading ? 'Siliniyor...' : 'Evet, Sil'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.push('/admin/alanlar')}
-            className="flex items-center text-indigo-600 hover:text-indigo-800 mb-4 transition-colors duration-200"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Alan Yönetimine Dön
-          </button>
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                {alan.ad}
-              </h1>
-              <p className="text-gray-600 mt-2">Alan detayları, sınıflar ve öğrenciler</p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Üst Bar */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            {/* Breadcrumb */}
+            <nav className="flex items-center text-sm text-gray-600 mb-2">
+              <Link href="/admin/alanlar" className="hover:text-indigo-600 flex items-center">
+                Meslek Alanları
+              </Link>
+              <ChevronRight className="h-4 w-4 mx-1" />
+              <span className="text-gray-900">{alan?.ad}</span>
+            </nav>
+
+            <h1 className="text-2xl font-semibold text-gray-900">{alan?.ad}</h1>
           </div>
+
+          <button
+            onClick={() => setAlanAyarlarModal(true)}
+            className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors duration-200"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border border-indigo-100 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex">
+            <nav className="flex -mb-px">
               <button
-                onClick={() => setActiveTab('ogretmenler')}
-                className={`py-4 px-6 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                onClick={() => {
+                  setActiveTab('ogretmenler')
+                  router.replace(`/admin/alanlar/${alanId}?tab=ogretmenler`)
+                }}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 ${
                   activeTab === 'ogretmenler'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center">
-                  <UserCheck className="h-5 w-5 mr-2" />
-                  Öğretmenler ({ogretmenler.length})
-                </div>
+                <Users className="h-5 w-5" />
+                Öğretmenler ({ogretmenler.length})
               </button>
               <button
-                onClick={() => setActiveTab('siniflar')}
-                className={`py-4 px-6 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                onClick={() => {
+                  setActiveTab('siniflar')
+                  router.replace(`/admin/alanlar/${alanId}?tab=siniflar`)
+                }}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 ${
                   activeTab === 'siniflar'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center">
-                  <School className="h-5 w-5 mr-2" />
-                  Sınıflar ({siniflar.length})
-                </div>
+                <GraduationCap className="h-5 w-5" />
+                Sınıflar ({siniflar.length})
               </button>
               <button
-                onClick={() => setActiveTab('ogrenciler')}
-                className={`py-4 px-6 text-sm font-medium border-b-2 transition-colors duration-200 ${
-                  activeTab === 'ogrenciler'
+                onClick={() => {
+                  setActiveTab('isletmeler')
+                  router.replace(`/admin/alanlar/${alanId}?tab=isletmeler`)
+                }}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 ${
+                  activeTab === 'isletmeler'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center">
-                  <Users className="h-5 w-5 mr-2" />
-                  Öğrenciler ({ogrenciler.length})
-                </div>
+                <Building2 className="h-5 w-5" />
+                İşletmeler ({isletmeler.length})
               </button>
             </nav>
           </div>
 
           <div className="p-6">
-            {activeTab === 'ogretmenler' ? (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">Öğretmenler</h2>
-                </div>
-
-                {ogretmenler.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {ogretmenler.map((ogretmen) => (
-                      <div key={ogretmen.id} 
-                        onClick={() => router.push(`/admin/ogretmenler/${ogretmen.id}`)}
-                        className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer hover:border-indigo-300"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center">
-                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                              <UserCheck className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-gray-900 text-lg">
-                                {ogretmen.ad} {ogretmen.soyad}
-                              </h3>
-                              {ogretmen.is_koordinator && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
-                                  ⭐ Koordinatör
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <div className="flex items-center text-sm text-gray-600">
-                            <span className="font-medium mr-2">📧</span>
-                            {ogretmen.email}
-                          </div>
-                          
-                          {ogretmen.telefon && (
-                            <div className="flex items-center text-sm text-gray-600">
-                              <span className="font-medium mr-2">📞</span>
-                              {ogretmen.telefon}
-                            </div>
-                          )}
-                        </div>
+            {activeTab === 'ogretmenler' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ogretmenler.map((ogretmen: any) => (
+                  <div
+                    key={ogretmen.id}
+                    className="p-4 rounded-lg border border-gray-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-50 rounded-full">
+                        <Users className="h-5 w-5 text-indigo-600" />
                       </div>
-                    ))}
+                      <div>
+                        <h3 className="font-medium text-gray-900">{ogretmen.ad} {ogretmen.soyad}</h3>
+                        {ogretmen.email && <p className="text-sm text-gray-500">{ogretmen.email}</p>}
+                        {ogretmen.telefon && <p className="text-sm text-gray-500">{ogretmen.telefon}</p>}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <UserCheck className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Henüz öğretmen yok</h3>
-                    <p className="mt-1 text-sm text-gray-500">Bu alana henüz öğretmen atanmamış.</p>
-                  </div>
-                )}
+                ))}
               </div>
-            ) : activeTab === 'siniflar' ? (
+            )}
+
+            {activeTab === 'siniflar' && (
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">Sınıflar</h2>
@@ -744,8 +1069,8 @@ export default function AlanDetayPage() {
                     {siniflar.map((sinif) => (
                       <div key={sinif.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow duration-200">
                         <div className="flex items-center justify-between mb-3">
-                          <button
-                            onClick={() => handleSinifClick(sinif.ad)}
+                          <Link
+                            href={`/admin/alanlar/${alanId}/siniflar/${sinif.id}`}
                             className="flex items-center flex-1 text-left hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors duration-200"
                           >
                             <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
@@ -753,52 +1078,12 @@ export default function AlanDetayPage() {
                             </div>
                             <div>
                               <h3 className="font-semibold text-gray-900">{sinif.ad}</h3>
-                              <p className="text-sm text-gray-500">{sinif.ogrenci_sayisi} öğrenci</p>
+                              <p className="text-sm text-gray-500">{sinif.ogrenci_sayisi || 0} öğrenci</p>
                               {sinif.dal && (
                                 <p className="text-xs text-indigo-600 font-medium">{sinif.dal}</p>
                               )}
-                              {/* Haftalık Program Önizleme */}
-                              {sinif.haftalik_program ? (
-                                <div className="mt-2">
-                                  <div className="text-xs text-gray-600 mb-1">Haftalık Program:</div>
-                                  <div className="flex gap-1">
-                                    {['pazartesi', 'sali', 'carsamba', 'persembe', 'cuma'].map((gun) => {
-                                      const durum = sinif.haftalik_program![gun as keyof HaftalikProgram]
-                                      return (
-                                        <div
-                                          key={gun}
-                                          className={`w-6 h-6 rounded-sm flex items-center justify-center text-xs ${
-                                            durum === 'okul' ? 'bg-blue-100 text-blue-700' :
-                                            durum === 'isletme' ? 'bg-green-100 text-green-700' :
-                                            'bg-gray-100 text-gray-500'
-                                          }`}
-                                          title={`${gun.charAt(0).toUpperCase() + gun.slice(1)}: ${
-                                            durum === 'okul' ? 'Okul' :
-                                            durum === 'isletme' ? 'İşletme' : 'Boş'
-                                          }`}
-                                        >
-                                          {durum === 'okul' ? '🏫' : durum === 'isletme' ? '🏢' : '⭕'}
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {sinif.isletme_gunleri && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                      🏢 {sinif.isletme_gunleri}
-                                    </span>
-                                  )}
-                                  {sinif.okul_gunleri && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                      🏫 {sinif.okul_gunleri}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
                             </div>
-                          </button>
+                          </Link>
                           <div className="flex space-x-2">
                             <button
                               onClick={(e) => {
@@ -828,268 +1113,91 @@ export default function AlanDetayPage() {
                     <School className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Henüz sınıf yok</h3>
                     <p className="mt-1 text-sm text-gray-500">Bu alan için henüz sınıf eklenmemiş.</p>
-                    <div className="mt-6">
-                      <button
-                        onClick={() => {
-                          setSinifFormData({ ad: '', dal: '', isletme_gunleri: '', okul_gunleri: '', haftalik_program: { pazartesi: 'bos', sali: 'bos', carsamba: 'bos', persembe: 'bos', cuma: 'bos' } })
-                          setSinifModalOpen(true)
-                        }}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        İlk Sınıfı Ekle
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
-            ) : (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex-1">
-                    {selectedSinifFilter && (
-                      <div className="inline-flex items-center px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-sm mb-4">
-                        <span className="mr-2">
-                          Filtrelenen Sınıf: {selectedSinifFilter}
-                        </span>
-                        <button
-                          onClick={() => setSelectedSinifFilter('')}
-                          className="text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <select
-                      value={selectedSinifFilter}
-                      onChange={(e) => setSelectedSinifFilter(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                    >
-                      <option value="">Tüm Sınıflar</option>
-                      {siniflar.map((sinif) => (
-                        <option key={sinif.id} value={sinif.ad}>
-                          {sinif.ad}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        setOgrenciFormData({ 
-                          ad: '', 
-                          soyad: '', 
-                          no: '', 
-                          sinif: selectedSinifFilter || '' 
-                        })
-                        setOgrenciModalOpen(true)
-                      }}
-                      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Yeni Öğrenci Ekle
-                    </button>
-                  </div>
-                </div>
+            )}
 
-                {filteredOgrenciler.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Öğrenci
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Numara
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Sınıf
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Aktif İşletme
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            İşlemler
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredOgrenciler.map((ogrenci) => (
-                          <tr key={ogrenci.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
-                                  <User className="h-4 w-4 text-indigo-600" />
-                                </div>
-                                <span className="text-sm font-medium text-gray-900">
-                                  {ogrenci.ad} {ogrenci.soyad}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {ogrenci.no}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                {ogrenci.sinif}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {ogrenci.isletme_adi ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  🏢 {ogrenci.isletme_adi}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                  ❌ İşletmesi yok
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button
-                                onClick={() => handleOgrenciDuzenle(ogrenci)}
-                                className="text-indigo-600 hover:text-indigo-900 mr-4 p-2 rounded-lg hover:bg-indigo-50 transition-all duration-200"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleOgrenciSil(ogrenci)}
-                                className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Users className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">
-                      {selectedSinifFilter ? `${selectedSinifFilter} sınıfında öğrenci yok` : 'Henüz öğrenci yok'}
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {selectedSinifFilter ? 
-                        `${selectedSinifFilter} sınıfına henüz öğrenci eklenmemiş.` : 
-                        'Bu alan için henüz öğrenci eklenmemiş.'}
-                    </p>
-                    <div className="mt-6">
-                      {selectedSinifFilter && (
-                        <button
-                          onClick={() => setSelectedSinifFilter('')}
-                          className="inline-flex items-center px-4 py-2 text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-all duration-200 mr-3"
-                        >
-                          Tüm Öğrencileri Göster
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setOgrenciFormData({ 
-                            ad: '', 
-                            soyad: '', 
-                            no: '', 
-                            sinif: selectedSinifFilter || '' 
-                          })
-                          setOgrenciModalOpen(true)
-                        }}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {selectedSinifFilter ? `${selectedSinifFilter}'a Öğrenci Ekle` : 'İlk Öğrenciyi Ekle'}
-                      </button>
+            {activeTab === 'isletmeler' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {isletmeler.map((isletme: any) => (
+                  <div
+                    key={isletme.id}
+                    onClick={() => router.push(`/admin/isletmeler/${isletme.id}?ref=/admin/alanlar/${alanId}?tab=isletmeler`)}
+                    className="p-4 rounded-lg border border-gray-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-50 rounded-full">
+                        <Building2 className="h-5 w-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900">{isletme.ad}</h3>
+                        {isletme.adres && <p className="text-sm text-gray-500">{isletme.adres}</p>}
+                        {isletme.telefon && <p className="text-sm text-gray-500">{isletme.telefon}</p>}
+                      </div>
                     </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Modaller */}
       {/* Sınıf Ekleme Modalı */}
       <Modal
         isOpen={sinifModalOpen}
         onClose={() => setSinifModalOpen(false)}
         title="Yeni Sınıf Ekle"
-        size="lg"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Sınıf Adı
             </label>
             <input
               type="text"
               value={sinifFormData.ad}
-              onChange={(e) => setSinifFormData({...sinifFormData, ad: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Örn: 11-A"
+              onChange={(e) => setSinifFormData({ ...sinifFormData, ad: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Örn: 12-A"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Dal (Opsiyonel)
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Dal
             </label>
             <input
               type="text"
               value={sinifFormData.dal}
-              onChange={(e) => setSinifFormData({...sinifFormData, dal: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Örn: Bilişim Teknolojileri"
+              onChange={(e) => setSinifFormData({ ...sinifFormData, dal: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Örn: Web Programcılığı"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Haftalık Program
             </label>
             <HaftalikProgramBileseni
               program={sinifFormData.haftalik_program}
-              onChange={(yeniProgram) => setSinifFormData({...sinifFormData, haftalik_program: yeniProgram})}
+              onChange={(yeniProgram) => setSinifFormData({ ...sinifFormData, haftalik_program: yeniProgram })}
             />
-            <div className="mt-4 space-y-2">
-              <p className="text-sm text-gray-500">Hızlı Program Seçimi:</p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    const program: HaftalikProgram = {
-                      pazartesi: 'okul',
-                      sali: 'okul',
-                      carsamba: 'okul',
-                      persembe: 'isletme',
-                      cuma: 'isletme'
-                    }
-                    setSinifFormData({
-                      ...sinifFormData,
-                      haftalik_program: program,
-                      isletme_gunleri: 'Perşembe-Cuma',
-                      okul_gunleri: 'Pazartesi-Salı-Çarşamba'
-                    })
-                  }}
-                  className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm"
-                >
-                  🏫 Pazartesi-Çarşamba Okul<br/>🏢 Perşembe-Cuma İşletme
-                </button>
-              </div>
-            </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
               onClick={() => setSinifModalOpen(false)}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border border-gray-300"
             >
               İptal
             </button>
             <button
               onClick={handleSinifEkle}
-              disabled={submitLoading || !sinifFormData.ad.trim()}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200"
+              disabled={submitLoading}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
             >
               {submitLoading ? 'Ekleniyor...' : 'Ekle'}
             </button>
@@ -1102,257 +1210,53 @@ export default function AlanDetayPage() {
         isOpen={editSinifModal}
         onClose={() => setEditSinifModal(false)}
         title="Sınıfı Düzenle"
-        size="lg"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Sınıf Adı
             </label>
             <input
               type="text"
               value={editSinifFormData.ad}
-              onChange={(e) => setEditSinifFormData({...editSinifFormData, ad: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Örn: 11-A"
+              onChange={(e) => setEditSinifFormData({ ...editSinifFormData, ad: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Dal (Opsiyonel)
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Dal
             </label>
             <input
               type="text"
               value={editSinifFormData.dal}
-              onChange={(e) => setEditSinifFormData({...editSinifFormData, dal: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Örn: Bilişim Teknolojileri"
+              onChange={(e) => setEditSinifFormData({ ...editSinifFormData, dal: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Haftalık Program
             </label>
             <HaftalikProgramBileseni
               program={editSinifFormData.haftalik_program}
-              onChange={(yeniProgram) => setEditSinifFormData({...editSinifFormData, haftalik_program: yeniProgram})}
+              onChange={(yeniProgram) => setEditSinifFormData({ ...editSinifFormData, haftalik_program: yeniProgram })}
             />
-            <div className="mt-4 space-y-2">
-              <p className="text-sm text-gray-500">Hızlı Program Seçimi:</p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    const program: HaftalikProgram = {
-                      pazartesi: 'okul',
-                      sali: 'okul',
-                      carsamba: 'okul',
-                      persembe: 'isletme',
-                      cuma: 'isletme'
-                    }
-                    setEditSinifFormData({
-                      ...editSinifFormData,
-                      haftalik_program: program,
-                      isletme_gunleri: 'Perşembe-Cuma',
-                      okul_gunleri: 'Pazartesi-Salı-Çarşamba'
-                    })
-                  }}
-                  className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm"
-                >
-                  🏫 Pazartesi-Çarşamba Okul<br/>🏢 Perşembe-Cuma İşletme
-                </button>
-              </div>
-            </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
               onClick={() => setEditSinifModal(false)}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border border-gray-300"
             >
               İptal
             </button>
             <button
               onClick={handleSinifGuncelle}
-              disabled={submitLoading || !editSinifFormData.ad.trim()}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200"
-            >
-              {submitLoading ? 'Güncelleniyor...' : 'Güncelle'}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Öğrenci Ekleme Modalı */}
-      <Modal
-        isOpen={ogrenciModalOpen}
-        onClose={() => {
-          setOgrenciModalOpen(false)
-          setOgrenciFormData({ ad: '', soyad: '', no: '', sinif: '' })
-        }}
-        title="Yeni Öğrenci Ekle"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ad
-              </label>
-              <input
-                type="text"
-                value={ogrenciFormData.ad}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, ad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Öğrenci adı"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Soyad
-              </label>
-              <input
-                type="text"
-                value={ogrenciFormData.soyad}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, soyad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Öğrenci soyadı"
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Öğrenci Numarası
-              </label>
-              <input
-                type="text"
-                value={ogrenciFormData.no}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, no: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Örn: 1234"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sınıf
-              </label>
-              <select
-                value={ogrenciFormData.sinif}
-                onChange={(e) => setOgrenciFormData({...ogrenciFormData, sinif: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Sınıf Seçin</option>
-                {siniflar.map((sinif) => (
-                  <option key={sinif.id} value={sinif.ad}>
-                    {sinif.ad}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              onClick={() => {
-                setOgrenciModalOpen(false)
-                setOgrenciFormData({ ad: '', soyad: '', no: '', sinif: '' })
-              }}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              İptal
-            </button>
-            <button
-              onClick={handleOgrenciEkle}
               disabled={submitLoading}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200"
-            >
-              {submitLoading ? 'Ekleniyor...' : 'Ekle'}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Öğrenci Düzenleme Modalı */}
-      <Modal
-        isOpen={editOgrenciModal}
-        onClose={() => setEditOgrenciModal(false)}
-        title="Öğrenciyi Düzenle"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ad
-              </label>
-              <input
-                type="text"
-                value={editOgrenciFormData.ad}
-                onChange={(e) => setEditOgrenciFormData({...editOgrenciFormData, ad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Öğrenci adı"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Soyad
-              </label>
-              <input
-                type="text"
-                value={editOgrenciFormData.soyad}
-                onChange={(e) => setEditOgrenciFormData({...editOgrenciFormData, soyad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Öğrenci soyadı"
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Öğrenci Numarası
-              </label>
-              <input
-                type="text"
-                value={editOgrenciFormData.no}
-                onChange={(e) => setEditOgrenciFormData({...editOgrenciFormData, no: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Örn: 1234"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sınıf
-              </label>
-              <select
-                value={editOgrenciFormData.sinif}
-                onChange={(e) => setEditOgrenciFormData({...editOgrenciFormData, sinif: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Sınıf Seçin</option>
-                {siniflar.map((sinif) => (
-                  <option key={sinif.id} value={sinif.ad}>
-                    {sinif.ad}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              onClick={() => setEditOgrenciModal(false)}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              İptal
-            </button>
-            <button
-              onClick={handleOgrenciGuncelle}
-              disabled={submitLoading}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200"
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
             >
               {submitLoading ? 'Güncelleniyor...' : 'Güncelle'}
             </button>
@@ -1366,9 +1270,132 @@ export default function AlanDetayPage() {
         onClose={() => setDeleteSinifModal(false)}
         onConfirm={handleSinifSilOnayla}
         title="Sınıfı Sil"
-        message={`"${selectedSinif?.ad}" sınıfını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`}
+        message={`"${selectedSinif?.ad}" sınıfını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
+        confirmText="Sil"
         loading={submitLoading}
       />
+
+      {/* Öğrenci Modalları */}
+      <Modal
+        isOpen={ogrenciModalOpen}
+        onClose={() => setOgrenciModalOpen(false)}
+        title="Yeni Öğrenci Ekle"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ad
+            </label>
+            <input
+              type="text"
+              value={ogrenciFormData.ad}
+              onChange={(e) => setOgrenciFormData({ ...ogrenciFormData, ad: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Soyad
+            </label>
+            <input
+              type="text"
+              value={ogrenciFormData.soyad}
+              onChange={(e) => setOgrenciFormData({ ...ogrenciFormData, soyad: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Öğrenci No
+            </label>
+            <input
+              type="text"
+              value={ogrenciFormData.ogrenci_no}
+              onChange={(e) => setOgrenciFormData({ ...ogrenciFormData, ogrenci_no: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <button
+              onClick={() => setOgrenciModalOpen(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border border-gray-300"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleOgrenciEkle}
+              disabled={submitLoading}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
+            >
+              {submitLoading ? 'Ekleniyor...' : 'Ekle'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Öğrenci Düzenleme Modalı */}
+      <Modal
+        isOpen={editOgrenciModal}
+        onClose={() => setEditOgrenciModal(false)}
+        title="Öğrenciyi Düzenle"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ad
+            </label>
+            <input
+              type="text"
+              value={editOgrenciFormData.ad}
+              onChange={(e) => setEditOgrenciFormData({ ...editOgrenciFormData, ad: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Soyad
+            </label>
+            <input
+              type="text"
+              value={editOgrenciFormData.soyad}
+              onChange={(e) => setEditOgrenciFormData({ ...editOgrenciFormData, soyad: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Öğrenci No
+            </label>
+            <input
+              type="text"
+              value={editOgrenciFormData.no}
+              onChange={(e) => setEditOgrenciFormData({ ...editOgrenciFormData, no: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <button
+              onClick={() => setEditOgrenciModal(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border border-gray-300"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleOgrenciGuncelle}
+              disabled={submitLoading}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
+            >
+              {submitLoading ? 'Güncelleniyor...' : 'Güncelle'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Öğrenci Silme Onay Modalı */}
       <ConfirmModal
@@ -1376,9 +1403,139 @@ export default function AlanDetayPage() {
         onClose={() => setDeleteOgrenciModal(false)}
         onConfirm={handleOgrenciSilOnayla}
         title="Öğrenciyi Sil"
-        message={`"${selectedOgrenci?.ad} ${selectedOgrenci?.soyad}" öğrencisini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`}
+        message={`"${selectedOgrenci?.ad} ${selectedOgrenci?.soyad}" öğrencisini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
+        confirmText="Sil"
         loading={submitLoading}
       />
+
+      {/* Alan Ayarları Modalı */}
+      <Modal
+        isOpen={alanAyarlarModal}
+        onClose={() => setAlanAyarlarModal(false)}
+        title="Alan Ayarları"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Alan Adı
+            </label>
+            <input
+              type="text"
+              value={alanFormData.ad}
+              onChange={(e) => setAlanFormData({ ...alanFormData, ad: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Açıklama
+            </label>
+            <textarea
+              value={alanFormData.aciklama}
+              onChange={(e) => setAlanFormData({ ...alanFormData, aciklama: e.target.value })}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="aktif"
+              checked={alanFormData.aktif}
+              onChange={(e) => setAlanFormData({ ...alanFormData, aktif: e.target.checked })}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="aktif" className="ml-2 block text-sm text-gray-900">
+              Alan aktif
+            </label>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <button
+              onClick={() => setAlanAyarlarModal(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border border-gray-300"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleAlanGuncelle}
+              disabled={submitLoading}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50"
+            >
+              {submitLoading ? 'Güncelleniyor...' : 'Güncelle'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Alan Silme Onay Modalı */}
+      <Modal
+        isOpen={alanSilModal}
+        onClose={() => setAlanSilModal(false)}
+        title="Alanı Sil"
+      >
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-amber-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-semibold text-amber-800 mb-2">
+                  Dikkat: Bu işlem geri alınamaz!
+                </h3>
+                <div className="mt-2 text-sm text-amber-700">
+                  <p>
+                    Bu alanı silmek için alan adını ({alan?.ad}) aşağıdaki kutuya yazın.
+                    Bu işlem geri alınamaz ve tüm alan verilerini silecektir.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Onay için alan adını yazın
+            </label>
+            <input
+              type="text"
+              value={silmeOnayi}
+              onChange={(e) => setSilmeOnayi(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder={alan?.ad}
+            />
+          </div>
+
+          {silmeHatasi && (
+            <div className="text-sm text-red-600">
+              {silmeHatasi}
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <button
+              onClick={() => {
+                setAlanSilModal(false)
+                setSilmeOnayi('')
+                setSilmeHatasi('')
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border border-gray-300"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleAlanSil}
+              disabled={submitLoading || silmeOnayi !== alan?.ad}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
+            >
+              {submitLoading ? 'Siliniyor...' : 'Alanı Sil'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 } 

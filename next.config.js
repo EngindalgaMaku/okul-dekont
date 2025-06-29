@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Google Fonts yerine local font kullan
-  optimizeFonts: false
+  // Güvenlik için harici domainleri belirt
+  images: {
+    domains: ['localhost'],
+  },
 }
 
 module.exports = nextConfig 

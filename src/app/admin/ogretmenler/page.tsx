@@ -6,6 +6,7 @@ import { Users, Plus, Edit, Trash2, Loader, Save, User, Mail, Phone, Briefcase, 
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
+import Link from 'next/link'
 
 interface Alan {
     id: number;
@@ -110,6 +111,12 @@ export default function OgretmenYonetimiPage() {
         ogretmen.telefon?.includes(query)
       )
     }
+
+    // Aktif öğretmenleri başa, pasif öğretmenleri sona al
+    filtered = [...filtered].sort((a, b) => {
+      if (a.aktif === b.aktif) return 0;
+      return a.aktif ? -1 : 1;
+    });
 
     setFilteredOgretmenler(filtered)
     setCurrentPage(1) // Reset to first page when filters change
@@ -290,757 +297,456 @@ export default function OgretmenYonetimiPage() {
 
   if (loading) {
     return (
-        <div className="flex justify-center items-center h-32">
-            <Loader className="animate-spin h-8 w-8 text-indigo-600" />
-        </div>
+      <div className="flex justify-center items-center h-screen">
+        <Loader className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Öğretmen Yönetimi
-            </h1>
-            <p className="text-gray-600 mt-2">Öğretmenleri yönetin ve bilgilerini güncelleyin.</p>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold flex items-center gap-3">
+            <Users className="h-8 w-8 text-blue-500" />
+            Öğretmen Yönetimi
+          </h1>
+          <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-2">
+            <Filter className="h-5 w-5 text-gray-500" />
+            <select
+              value={selectedAlan}
+              onChange={(e) => setSelectedAlan(e.target.value)}
+              className="bg-transparent text-sm focus:outline-none"
+            >
+              <option value="">Tüm Alanlar</option>
+              {alanlar.map((alan) => (
+                <option key={alan.id} value={alan.id}>
+                  {alan.ad}
+                </option>
+              ))}
+            </select>
           </div>
-          <button
-            onClick={handleAdd}
-            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Yeni Öğretmen Ekle
-          </button>
         </div>
 
-        {/* Filtre ve Arama Bölümü */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl border border-indigo-100 p-6 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Arama */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Öğretmen adı, soyadı, email veya telefon..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Alan Filtresi */}
-            <div className="md:w-64">
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <select
-                  value={selectedAlan}
-                  onChange={(e) => setSelectedAlan(e.target.value)}
-                  className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white"
-                >
-                  <option value="">Tüm Alanlar</option>
-                  {alanlar.map(alan => (
-                    <option key={alan.id} value={alan.id}>{alan.ad}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Filtreleri Temizle */}
-            {(selectedAlan || searchQuery) && (
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Öğretmen ara..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {searchQuery && (
               <button
-                onClick={() => {
-                  setSelectedAlan('')
-                  setSearchQuery('')
-                }}
-                className="px-4 py-3 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-xl hover:bg-gray-200 transition-all duration-200 flex items-center gap-2"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2"
               >
-                <X className="w-4 h-4" />
-                Temizle
+                <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
               </button>
             )}
           </div>
 
-          {/* Filtre Sonuçları */}
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              {filteredOgretmenler.length} öğretmen gösteriliyor
-              {(selectedAlan || searchQuery) && (
-                <span className="text-indigo-600">
-                  {' '}(toplam {ogretmenler.length} öğretmenden)
-                </span>
-              )}
-            </p>
-            
-            {/* Aktif Filtreler */}
-            <div className="flex gap-2">
-              {selectedAlan && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                  Alan: {alanlar.find(a => a.id.toString() === selectedAlan)?.ad}
-                  <button
-                    onClick={() => setSelectedAlan('')}
-                    className="ml-2 text-indigo-600 hover:text-indigo-800"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-              {searchQuery && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  Arama: "{searchQuery}"
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="ml-2 text-purple-600 hover:text-purple-800"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-            </div>
-          </div>
+          <button
+            onClick={handleAdd}
+            className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg flex items-center"
+            title="Yeni Öğretmen"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
         </div>
+      </div>
 
-        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border border-indigo-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Öğretmen Bilgileri
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    İletişim
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Alan
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Durum
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    İşlemler
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white/60 divide-y divide-gray-200">
-                {paginatedData.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        <Users className="h-12 w-12 text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">
-                          {filteredOgretmenler.length === 0 ? 'Henüz öğretmen eklenmemiş' : 'Filtre kriterlerinize uygun öğretmen bulunamadı'}
-                        </h3>
-                        <p className="text-gray-500 text-center max-w-md">
-                          {filteredOgretmenler.length === 0 
-                            ? 'Sisteme ilk öğretmeninizi eklemek için "Yeni Öğretmen Ekle" butonunu kullanın.'
-                            : 'Farklı arama terimleri deneyin veya filtreleri temizleyin.'
-                          }
-                        </p>
-                        {(selectedAlan || searchQuery) && (
-                          <button
-                            onClick={() => {
-                              setSelectedAlan('')
-                              setSearchQuery('')
-                            }}
-                            className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-all duration-200"
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Filtreleri Temizle
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedData.map((ogretmen) => (
-                  <tr key={ogretmen.id} className="hover:bg-indigo-50/50 transition-colors duration-200">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <User className="h-5 w-5 text-indigo-500 mr-3" />
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Öğretmen
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Alan
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Detay
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paginatedData.map((ogretmen) => (
+                <tr 
+                  key={ogretmen.id} 
+                  className={`hover:bg-gray-50 ${!ogretmen.aktif ? 'bg-red-50' : ''}`}
+                >
+                  <td className="px-6 py-4">
+                    <Link href={`/admin/ogretmenler/${ogretmen.id}`} className="group">
+                      <div className="flex items-center gap-3">
+                        <User className={`h-5 w-5 ${!ogretmen.aktif ? 'text-red-400' : 'text-gray-400'} group-hover:text-blue-500`} />
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="font-medium group-hover:text-blue-500">
                             {ogretmen.ad} {ogretmen.soyad}
+                            {!ogretmen.aktif && (
+                              <span className="ml-2 text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded">
+                                Pasif
+                              </span>
+                            )}
                           </div>
-                          {ogretmen.pin && (
-                            <div className="text-xs font-mono text-indigo-600 flex items-center mt-1">
-                              <Key className="h-3 w-3 mr-1 text-indigo-500" />
-                              PIN: {ogretmen.pin}
+                          {ogretmen.telefon && (
+                            <div className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                              <Phone className="h-4 w-4" />
+                              {ogretmen.telefon}
                             </div>
                           )}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        {ogretmen.email && (
-                          <div className="text-sm text-gray-600 flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            {ogretmen.email}
-                          </div>
-                        )}
-                        {ogretmen.telefon && (
-                          <div className="text-sm text-gray-600 flex items-center">
-                            <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                            {ogretmen.telefon}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {ogretmen.alanlar ? (
-                        <div className="text-sm text-gray-600 flex items-center">
-                          <Briefcase className="h-4 w-4 mr-2 text-gray-400" />
-                          {ogretmen.alanlar.ad}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">Alan atanmamış</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleToggleActive(ogretmen)}
-                        className="flex items-center transition-all duration-200"
+                    </Link>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className={`h-5 w-5 ${!ogretmen.aktif ? 'text-red-400' : 'text-gray-400'}`} />
+                      <span className="text-sm text-gray-900">
+                        {ogretmen.alanlar?.ad || '-'}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-center">
+                      <Link
+                        href={`/admin/ogretmenler/${ogretmen.id}`}
+                        className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                        title="Öğretmen Detayı"
                       >
-                        {ogretmen.aktif ? (
-                          <>
-                            <ToggleRight className="h-6 w-6 text-green-500 mr-2" />
-                            <span className="text-sm font-medium text-green-600">Aktif</span>
-                          </>
-                        ) : (
-                          <>
-                            <ToggleLeft className="h-6 w-6 text-gray-400 mr-2" />
-                            <span className="text-sm font-medium text-gray-500">Pasif</span>
-                          </>
-                        )}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        onClick={() => handleEdit(ogretmen)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4 p-2 rounded-lg hover:bg-indigo-50 transition-all duration-200">
-                        <Edit className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(ogretmen)} 
-                        className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </td>
-                  </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {filteredOgretmenler.length > 0 && totalPages > 1 && (
-            <div className="bg-white/60 px-6 py-4 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                {/* Results Info */}
-                <div className="text-sm text-gray-600">
-                  Toplam <span className="font-medium text-gray-900">{filteredOgretmenler.length}</span> kayıttan{' '}
-                  <span className="font-medium text-gray-900">
-                    {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, filteredOgretmenler.length)}
-                  </span>{' '}
-                  arası gösteriliyor
-                </div>
-
-                {/* Pagination Controls */}
-                <div className="flex items-center space-x-1">
-                  {/* First Page */}
-                  <button
-                    onClick={handleFirstPage}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                    title="İlk sayfa"
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </button>
-
-                  {/* Previous Page */}
-                  <button
-                    onClick={handlePrevPage}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                    title="Önceki sayfa"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  {/* Page Numbers */}
-                  <div className="flex items-center space-x-1 mx-2">
-                    {(() => {
-                      const pages = []
-                      const startPage = Math.max(1, currentPage - 2)
-                      const endPage = Math.min(totalPages, currentPage + 2)
-
-                      // First page if not in range
-                      if (startPage > 1) {
-                        pages.push(
-                          <button
-                            key={1}
-                            onClick={() => handlePageChange(1)}
-                            className="px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200"
-                          >
-                            1
-                          </button>
-                        )
-                        if (startPage > 2) {
-                          pages.push(
-                            <span key="start-ellipsis" className="px-2 text-gray-400">...</span>
-                          )
-                        }
-                      }
-
-                      // Current range
-                      for (let i = startPage; i <= endPage; i++) {
-                        pages.push(
-                          <button
-                            key={i}
-                            onClick={() => handlePageChange(i)}
-                            className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
-                              i === currentPage
-                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm'
-                                : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                          >
-                            {i}
-                          </button>
-                        )
-                      }
-
-                      // Last page if not in range
-                      if (endPage < totalPages) {
-                        if (endPage < totalPages - 1) {
-                          pages.push(
-                            <span key="end-ellipsis" className="px-2 text-gray-400">...</span>
-                          )
-                        }
-                        pages.push(
-                          <button
-                            key={totalPages}
-                            onClick={() => handlePageChange(totalPages)}
-                            className="px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200"
-                          >
-                            {totalPages}
-                          </button>
-                        )
-                      }
-
-                      return pages
-                    })()}
-                  </div>
-
-                  {/* Next Page */}
-                  <button
-                    onClick={handleNextPage}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                    title="Sonraki sayfa"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-
-                  {/* Last Page */}
-                  <button
-                    onClick={handleLastPage}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                    title="Son sayfa"
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+                        <User className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Add Modal */}
+      {/* Pagination */}
+      <div className="mt-4 flex justify-between items-center">
+        <div className="text-sm text-gray-700">
+          Toplam {filteredOgretmenler.length} öğretmen
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleFirstPage}
+            disabled={currentPage === 1}
+            className="p-2 text-gray-600 hover:text-gray-900 disabled:text-gray-400"
+          >
+            <ChevronsLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={handlePrevPage}
+            disabled={currentPage === 1}
+            className="p-2 text-gray-600 hover:text-gray-900 disabled:text-gray-400"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <span className="text-sm text-gray-700">
+            Sayfa {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            className="p-2 text-gray-600 hover:text-gray-900 disabled:text-gray-400"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <button
+            onClick={handleLastPage}
+            disabled={currentPage === totalPages}
+            className="p-2 text-gray-600 hover:text-gray-900 disabled:text-gray-400"
+          >
+            <ChevronsRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Ekleme Modal */}
       <Modal
         isOpen={addModal}
         onClose={() => setAddModal(false)}
         title="Yeni Öğretmen Ekle"
-        size="lg"
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ad *
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ad
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.ad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ad: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="Öğretmen adı"
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                value={formData.ad}
+                onChange={(e) => setFormData({ ...formData, ad: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Soyad *
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Soyad
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.soyad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, soyad: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="Öğretmen soyadı"
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                value={formData.soyad}
+                onChange={(e) => setFormData({ ...formData, soyad: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                E-posta <span className="text-gray-400 font-normal">(Opsiyonel)</span>
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="ornek@okul.edu.tr"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Telefon
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={formData.telefon}
-                  onChange={(e) => setFormData(prev => ({ ...prev, telefon: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="0555 123 45 67"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Branş/Alan
-              </label>
-              <div className="relative">
-                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <select
-                  value={formData.alan_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, alan_id: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                >
-                  <option value="">Alan seçiniz</option>
-                  {alanlar.map(alan => (
-                    <option key={alan.id} value={alan.id}>{alan.ad}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                PIN Kodu *
-              </label>
-              <div className="relative">
-                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.pin}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 4)
-                    setFormData(prev => ({ ...prev, pin: value }))
-                  }}
-                  className="pl-10 pr-20 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 font-mono"
-                  placeholder="0000"
-                  maxLength={4}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, pin: generateRandomPin() }))}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
-                >
-                  Yeni
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">4 haneli sayı (giriş için gerekli)</p>
-            </div>
-          </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Durum
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              E-posta
             </label>
-            <div className="flex items-center space-x-3">
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Telefon
+            </label>
+            <input
+              type="tel"
+              value={formData.telefon}
+              onChange={(e) => setFormData({ ...formData, telefon: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Alan
+            </label>
+            <select
+              value={formData.alan_id}
+              onChange={(e) => setFormData({ ...formData, alan_id: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Alan Seçin</option>
+              {alanlar.map((alan) => (
+                <option key={alan.id} value={alan.id}>
+                  {alan.ad}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              PIN Kodu
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={formData.pin}
+                onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
+                maxLength={4}
+                className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                required
+              />
               <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, aktif: true }))}
-                className={`flex items-center px-4 py-2 rounded-xl transition-all duration-200 ${
-                  formData.aktif 
-                    ? 'bg-green-100 text-green-700 border border-green-300' 
-                    : 'bg-gray-100 text-gray-600 border border-gray-300'
-                }`}
+                onClick={() => setFormData({ ...formData, pin: generateRandomPin() })}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
               >
-                <ToggleRight className="h-5 w-5 mr-2" />
-                Aktif
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, aktif: false }))}
-                className={`flex items-center px-4 py-2 rounded-xl transition-all duration-200 ${
-                  !formData.aktif 
-                    ? 'bg-gray-100 text-gray-700 border border-gray-300' 
-                    : 'bg-gray-50 text-gray-600 border border-gray-200'
-                }`}
-              >
-                <ToggleLeft className="h-5 w-5 mr-2" />
-                Pasif
+                Yeni PIN
               </button>
             </div>
           </div>
           
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setAddModal(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200"
-              disabled={submitLoading}
-            >
-              İptal
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveAdd}
-              disabled={submitLoading || !formData.ad.trim() || !formData.soyad.trim() || !formData.pin.trim()}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 border border-transparent rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {submitLoading ? 'Ekleniyor...' : 'Ekle'}
-            </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="aktif"
+              checked={formData.aktif}
+              onChange={(e) => setFormData({ ...formData, aktif: e.target.checked })}
+              className="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="aktif" className="text-sm text-gray-700">
+              Aktif
+            </label>
           </div>
+        </div>
+        
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={() => setAddModal(false)}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900"
+          >
+            İptal
+          </button>
+          <button
+            onClick={handleSaveAdd}
+            disabled={submitLoading}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitLoading ? (
+              <Loader className="h-5 w-5 animate-spin" />
+            ) : (
+              <Save className="h-5 w-5" />
+            )}
+            Kaydet
+          </button>
         </div>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* Düzenleme Modal */}
       <Modal
         isOpen={editModal}
         onClose={() => setEditModal(false)}
-        title="Öğretmeni Düzenle"
-        size="lg"
+        title="Öğretmen Düzenle"
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ad *
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ad
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.ad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ad: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="Öğretmen adı"
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                value={formData.ad}
+                onChange={(e) => setFormData({ ...formData, ad: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Soyad *
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Soyad
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.soyad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, soyad: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="Öğretmen soyadı"
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                value={formData.soyad}
+                onChange={(e) => setFormData({ ...formData, soyad: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                E-posta
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="ornek@okul.edu.tr"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Telefon
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={formData.telefon}
-                  onChange={(e) => setFormData(prev => ({ ...prev, telefon: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                  placeholder="0555 123 45 67"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Branş/Alan
-              </label>
-              <div className="relative">
-                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <select
-                  value={formData.alan_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, alan_id: e.target.value }))}
-                  className="pl-10 pr-4 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                >
-                  <option value="">Alan seçiniz</option>
-                  {alanlar.map(alan => (
-                    <option key={alan.id} value={alan.id}>{alan.ad}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                PIN Kodu * 
-                <span className="text-indigo-600 font-normal">(Giriş için gerekli)</span>
-              </label>
-              <div className="relative">
-                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.pin}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 4)
-                    setFormData(prev => ({ ...prev, pin: value }))
-                  }}
-                  className="pl-10 pr-20 py-3 block w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 font-mono"
-                  placeholder="0000"
-                  maxLength={4}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, pin: generateRandomPin() }))}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
-                >
-                  Yeni
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">PIN değiştirilirse öğretmene bilgi verilmeli</p>
-            </div>
-          </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Durum
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              E-posta
             </label>
-            <div className="flex items-center space-x-3">
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Telefon
+            </label>
+            <input
+              type="tel"
+              value={formData.telefon}
+              onChange={(e) => setFormData({ ...formData, telefon: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Alan
+            </label>
+            <select
+              value={formData.alan_id}
+              onChange={(e) => setFormData({ ...formData, alan_id: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Alan Seçin</option>
+              {alanlar.map((alan) => (
+                <option key={alan.id} value={alan.id}>
+                  {alan.ad}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              PIN Kodu
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={formData.pin}
+                onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
+                maxLength={4}
+                className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                required
+              />
               <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, aktif: true }))}
-                className={`flex items-center px-4 py-2 rounded-xl transition-all duration-200 ${
-                  formData.aktif 
-                    ? 'bg-green-100 text-green-700 border border-green-300' 
-                    : 'bg-gray-100 text-gray-600 border border-gray-300'
-                }`}
+                onClick={() => setFormData({ ...formData, pin: generateRandomPin() })}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
               >
-                <ToggleRight className="h-5 w-5 mr-2" />
-                Aktif
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, aktif: false }))}
-                className={`flex items-center px-4 py-2 rounded-xl transition-all duration-200 ${
-                  !formData.aktif 
-                    ? 'bg-gray-100 text-gray-700 border border-gray-300' 
-                    : 'bg-gray-50 text-gray-600 border border-gray-200'
-                }`}
-              >
-                <ToggleLeft className="h-5 w-5 mr-2" />
-                Pasif
+                Yeni PIN
               </button>
             </div>
           </div>
           
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setEditModal(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200"
-              disabled={submitLoading}
-            >
-              İptal
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveEdit}
-              disabled={submitLoading || !formData.ad.trim() || !formData.soyad.trim() || !formData.pin.trim()}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 border border-transparent rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {submitLoading ? 'Kaydediliyor...' : 'Kaydet'}
-            </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="aktif-edit"
+              checked={formData.aktif}
+              onChange={(e) => setFormData({ ...formData, aktif: e.target.checked })}
+              className="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="aktif-edit" className="text-sm text-gray-700">
+              Aktif
+            </label>
           </div>
+        </div>
+        
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={() => setEditModal(false)}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900"
+          >
+            İptal
+          </button>
+          <button
+            onClick={handleSaveEdit}
+            disabled={submitLoading}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitLoading ? (
+              <Loader className="h-5 w-5 animate-spin" />
+            ) : (
+              <Save className="h-5 w-5" />
+            )}
+            Kaydet
+          </button>
         </div>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Silme Modal */}
       <ConfirmModal
         isOpen={deleteModal}
         onClose={() => setDeleteModal(false)}
         onConfirm={handleConfirmDelete}
-        title="Öğretmeni Sil"
-        message={`"${selectedOgretmen?.ad} ${selectedOgretmen?.soyad}" öğretmenini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm ilgili veriler de silinecektir.`}
+        title="Öğretmen Sil"
+        description={`${selectedOgretmen?.ad} ${selectedOgretmen?.soyad} isimli öğretmeni silmek istediğinize emin misiniz?`}
         confirmText="Sil"
-        cancelText="İptal"
-        type="danger"
-        loading={submitLoading}
+        confirmLoadingText="Siliniyor..."
+        isLoading={submitLoading}
       />
     </div>
   )
