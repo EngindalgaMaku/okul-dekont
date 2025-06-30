@@ -375,7 +375,7 @@ export default function OgretmenPage() {
       let dosyaUrl = `belge_${Date.now()}_${belgeFile.name}`
 
       const { error } = await supabase
-        .from('isletme_belgeleri')
+        .from('belgeler')
         .insert({
           isletme_id: selectedIsletme.id,
           ogretmen_id: ogretmen.id,
@@ -409,7 +409,7 @@ export default function OgretmenPage() {
     setBelgelerLoading(true)
     try {
       const { data, error } = await supabase
-        .from('isletme_belgeleri')
+        .from('belgeler')
         .select('*')
         .eq('isletme_id', isletmeId)
         .order('yuklenme_tarihi', { ascending: false })

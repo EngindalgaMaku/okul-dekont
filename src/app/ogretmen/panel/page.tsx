@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, FileText, LogOut, Loader, User, Phone, Mail, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Building2, FileText, LogOut, Loader, User, Phone, Mail, CheckCircle, Clock, XCircle, Upload, Plus, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
 
@@ -17,14 +17,32 @@ interface OgretmenSession {
   }
 }
 
+interface Belge {
+  id: number;
+  isletme_id: number;
+  ad: string;
+  tur: string;
+  dosya_url?: string;
+  yukleme_tarihi: string;
+}
+
 export default function OgretmenPanelPage() {
   const router = useRouter()
   const [session, setSession] = useState<OgretmenSession | null>(null)
   const [isletmeler, setIsletmeler] = useState<any[]>([])
   const [dekontlar, setDekontlar] = useState<any[]>([])
+  const [belgeler, setBelgeler] = useState<Belge[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDekont, setSelectedDekont] = useState<any>(null)
   const [dekontDetailModalOpen, setDekontDetailModalOpen] = useState(false)
+
+  const [belgeModalOpen, setBelgeModalOpen] = useState(false)
+  const [selectedIsletme, setSelectedIsletme] = useState<any>(null)
+  const [belgeFormData, setBelgeFormData] = useState({
+    ad: '',
+    tur: 'sozlesme',
+    dosya: null as File | null,
+  });
 
   useEffect(() => {
     const storedSession = localStorage.getItem('ogretmen_session')
@@ -81,6 +99,17 @@ export default function OgretmenPanelPage() {
         } else {
           setDekontlar(dekontlarData || [])
         }
+
+        const { data: belgelerData, error: belgelerError } = await supabase
+          .from('belgeler')
+          .select('*')
+          .in('isletme_id', isletmeIds);
+
+        if (belgelerError) {
+          console.error('Belgeler getirme hatası:', belgelerError);
+        } else {
+          setBelgeler(belgelerData || []);
+        }
       }
     } catch (error) {
       console.error('Veri getirme hatası:', error)
@@ -92,6 +121,59 @@ export default function OgretmenPanelPage() {
   const handleLogout = () => {
     localStorage.removeItem('ogretmen_session')
     router.push('/ogretmen/login')
+  }
+
+  const handleBelgeUpload = async () => {
+    if (!selectedIsletme || !belgeFormData.dosya || !belgeFormData.ad.trim()) {
+      alert('Lütfen belge adını girin ve bir dosya seçin.');
+      return;
+    }
+
+    const file = belgeFormData.dosya;
+    const fileName = `${Date.now()}-${file.name}`;
+    const filePath = `belgeler/${selectedIsletme.id}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('belgeler')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Dosya yükleme hatası:', uploadError);
+      alert('Dosya yüklenirken bir hata oluştu.');
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('belgeler')
+      .getPublicUrl(filePath);
+
+    const { error: dbError } = await supabase.from('belgeler').insert({
+      isletme_id: selectedIsletme.id,
+      ad: belgeFormData.ad,
+      tur: belgeFormData.tur,
+      dosya_url: urlData.publicUrl,
+      yukleme_tarihi: new Date().toISOString(),
+    });
+
+    if (dbError) {
+      console.error('Belge veritabanına kaydetme hatası:', dbError);
+      alert('Belge bilgileri kaydedilirken bir hata oluştu.');
+      return;
+    }
+
+    alert('Belge başarıyla yüklendi!');
+    setBelgeModalOpen(false);
+    setBelgeFormData({ ad: '', tur: 'sozlesme', dosya: null });
+    fetchOgretmenData(session!.ogretmen.id); // Verileri yenile
+  };
+  
+  const formatBelgeTur = (tur: string) => {
+    switch (tur) {
+      case 'sozlesme': return 'Sözleşme'
+      case 'fesih_belgesi': return 'Fesih Belgesi'
+      case 'usta_ogretici_belgesi': 'Usta Öğretici Belgesi'
+      default: return tur.charAt(0).toUpperCase() + tur.slice(1);
+    }
   }
 
   if (loading) {
@@ -199,6 +281,16 @@ export default function OgretmenPanelPage() {
                       <div className="flex items-center justify-between mb-4 pb-2 border-b">
                         <h3 className="text-lg font-semibold text-gray-800">{isletme.ad}</h3>
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedIsletme(isletme);
+                              setBelgeModalOpen(true);
+                            }}
+                            title="Belgeleri Görüntüle"
+                            className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors"
+                          >
+                            <FileText className="h-5 w-5" />
+                          </button>
                           {isletme.telefon &&
                             <a href={`tel:${isletme.telefon}`} className="text-gray-500 hover:text-blue-600 p-2 rounded-full hover:bg-gray-100">
                               <Phone className="h-5 w-5" />
@@ -336,6 +428,75 @@ export default function OgretmenPanelPage() {
               </div>
             </div>
           )}
+        </Modal>
+      )}
+
+      {selectedIsletme && (
+        <Modal
+          isOpen={belgeModalOpen}
+          onClose={() => {
+            setBelgeModalOpen(false);
+            setSelectedIsletme(null);
+          }}
+          title={`${selectedIsletme.ad} - Belgeler`}
+        >
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-800">Yüklenen Belgeler</h3>
+            </div>
+            
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+              {belgeler.filter(b => b.isletme_id === selectedIsletme.id).length > 0 ? (
+                belgeler.filter(b => b.isletme_id === selectedIsletme.id).map(belge => (
+                  <div key={belge.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between hover:bg-gray-100">
+                    <div>
+                      <p className="font-semibold text-gray-700">{belge.ad}</p>
+                      <p className="text-sm text-gray-500">{formatBelgeTur(belge.tur)}</p>
+                    </div>
+                    <a href={belge.dosya_url} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-full">
+                      <Download className="h-5 w-5" />
+                    </a>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">Henüz belge yüklenmemiş.</p>
+              )}
+            </div>
+
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-lg font-medium text-gray-800 mb-2">Yeni Belge Yükle</h3>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Belge Adı"
+                  value={belgeFormData.ad}
+                  onChange={(e) => setBelgeFormData({ ...belgeFormData, ad: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <select
+                  value={belgeFormData.tur}
+                  onChange={(e) => setBelgeFormData({ ...belgeFormData, tur: e.target.value })}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="sozlesme">Sözleşme</option>
+                  <option value="fesih_belgesi">Fesih Belgesi</option>
+                  <option value="usta_ogretici_belgesi">Usta Öğretici Belgesi</option>
+                  <option value="diger">Diğer</option>
+                </select>
+                <input
+                  type="file"
+                  onChange={(e) => setBelgeFormData({ ...belgeFormData, dosya: e.target.files ? e.target.files[0] : null })}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                 <button
+                  onClick={handleBelgeUpload}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Upload className="h-5 w-5 mr-2" /> Yükle
+                </button>
+              </div>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

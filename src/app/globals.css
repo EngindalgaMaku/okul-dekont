@@ -12,7 +12,6 @@ html, body {
 body {
   min-height: 100vh;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(to bottom right, #EBF4FF, #F3E8FF);
   display: flex;
   flex-direction: column;
   -webkit-overflow-scrolling: touch;
