@@ -6,59 +6,70 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 // Tüm işlemler için standart, güvenli client'ı kullan
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-export type Database = {
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
   public: {
     Tables: {
       alanlar: {
         Row: {
-          id: number
+          id: string
           ad: string
           aciklama: string | null
+          aktif: boolean
           created_at: string
         }
         Insert: {
-          id?: number
+          id?: string
           ad: string
           aciklama?: string | null
+          aktif?: boolean
           created_at?: string
         }
         Update: {
-          id?: number
+          id?: string
           ad?: string
           aciklama?: string | null
+          aktif?: boolean
           created_at?: string
         }
       }
       ogretmenler: {
         Row: {
-          id: number
+          id: string
           ad: string
           soyad: string
           email: string | null
           telefon: string | null
-          alan_id: number | null
+          alan_id: string | null
           aktif: boolean
           pin: string
           created_at: string
         }
         Insert: {
-          id?: number
+          id?: string
           ad: string
           soyad: string
           email?: string | null
           telefon?: string | null
-          alan_id?: number | null
+          alan_id?: string | null
           aktif?: boolean
           pin: string
           created_at?: string
         }
         Update: {
-          id?: number
+          id?: string
           ad?: string
           soyad?: string
           email?: string | null
           telefon?: string | null
-          alan_id?: number | null
+          alan_id?: string | null
           aktif?: boolean
           pin?: string
           created_at?: string
@@ -66,75 +77,75 @@ export type Database = {
       }
       isletmeler: {
         Row: {
-          id: number
+          id: string
           ad: string
           yetkili_kisi: string
           telefon: string
           email: string
           adres: string
           vergi_no: string
+          pin_kodu: string | null
+          koordinator_id: string | null
           created_at: string
         }
         Insert: {
-          id?: number
+          id?: string
           ad: string
           yetkili_kisi: string
           telefon: string
           email: string
           adres: string
           vergi_no: string
+          pin_kodu?: string | null
+          koordinator_id?: string | null
           created_at?: string
         }
         Update: {
-          id?: number
+          id?: string
           ad?: string
           yetkili_kisi?: string
           telefon?: string
           email?: string
           adres?: string
           vergi_no?: string
+          pin_kodu?: string | null
+          koordinator_id?: string | null
           created_at?: string
         }
       }
       ogrenciler: {
         Row: {
-          id: number
+          id: string
           ad: string
           soyad: string
-          tc_no: string
-          telefon: string | null
-          email: string | null
-          alan_id: number
+          numara: string
           sinif: string
-          veli_adi: string | null
-          veli_telefon: string | null
+          alan_id: string
+          isletme_id: string | null
           created_at: string
+          updated_at: string
         }
         Insert: {
-          id?: number
+          id?: string
           ad: string
           soyad: string
-          tc_no: string
-          telefon?: string | null
-          email?: string | null
-          alan_id: number
+          numara: string
           sinif: string
-          veli_adi?: string | null
-          veli_telefon?: string | null
+          alan_id: string
+          isletme_id?: string | null
           created_at?: string
+          updated_at?: string
         }
         Update: {
-          id?: number
+          id?: string
           ad?: string
           soyad?: string
-          tc_no?: string
-          telefon?: string | null
-          email?: string | null
-          alan_id?: number
+          numara?: string
           sinif?: string
-          veli_adi?: string | null
-          veli_telefon?: string | null
+          alan_id?: string
+          isletme_id?: string | null
           created_at?: string
+          updated_at?: string
         }
       }
       stajlar: {

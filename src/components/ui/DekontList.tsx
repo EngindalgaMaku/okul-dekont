@@ -1,0 +1,158 @@
+import { Eye, Trash2, Receipt } from 'lucide-react'
+import { Dekont } from '@/types/dekont'
+
+interface DekontListProps {
+  dekontlar: Dekont[]
+  onDekontSelect: (dekont: Dekont) => void
+  onDekontDelete?: (dekont: Dekont) => void
+  isLoading?: boolean
+}
+
+const formatDate = (date: string | undefined) => {
+  if (!date) return ''
+  try {
+    const parsedDate = new Date(date)
+    if (isNaN(parsedDate.getTime())) return ''
+    return parsedDate.toLocaleDateString('tr-TR')
+  } catch (error) {
+    console.error('Tarih formatlanırken hata:', error)
+    return ''
+  }
+}
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY'
+  }).format(amount)
+}
+
+const getOnayDurumuClass = (durum: string) => {
+  switch (durum) {
+    case 'bekliyor':
+      return 'bg-yellow-100 text-yellow-800'
+    case 'onaylandi':
+      return 'bg-green-100 text-green-800'
+    case 'reddedildi':
+      return 'bg-red-100 text-red-800'
+    default:
+      return 'bg-gray-100 text-gray-800'
+  }
+}
+
+const getOnayDurumuText = (durum: string) => {
+  switch (durum) {
+    case 'bekliyor':
+      return 'Bekliyor'
+    case 'onaylandi':
+      return 'Onaylandı'
+    case 'reddedildi':
+      return 'Reddedildi'
+    default:
+      return 'Bilinmiyor'
+  }
+}
+
+export default function DekontList({ dekontlar, onDekontSelect, onDekontDelete, isLoading }: DekontListProps) {
+  if (isLoading) {
+    return (
+      <div className="w-full text-center py-16">
+        <div className="relative mx-auto w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+        </div>
+        <p className="mt-4 text-gray-600 font-medium">Yükleniyor...</p>
+      </div>
+    )
+  }
+
+  if (dekontlar.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <div className="p-4 bg-gray-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center">
+          <Receipt className="h-10 w-10 text-gray-400" />
+        </div>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">Dekont Bulunamadı</h3>
+        <p className="mt-2 text-sm text-gray-500">Henüz dekont yüklenmemiş.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Tarih
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Öğrenci
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              İşletme
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Tutar
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Dönem
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Durum
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              İşlemler
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {dekontlar.map((dekont) => (
+            <tr key={dekont.id} className="hover:bg-gray-50">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {formatDate(dekont.odeme_tarihi)}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {dekont.stajlar?.ogrenciler?.ad} {dekont.stajlar?.ogrenciler?.soyad}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {dekont.isletmeler?.ad}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {formatCurrency(dekont.tutar)}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {dekont.ay}/{dekont.yil}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getOnayDurumuClass(dekont.onay_durumu)}`}>
+                  {getOnayDurumuText(dekont.onay_durumu)}
+                </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => onDekontSelect(dekont)}
+                    className="text-indigo-600 hover:text-indigo-900"
+                    title="Görüntüle"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </button>
+                  {onDekontDelete && (
+                    <button
+                      onClick={() => onDekontDelete(dekont)}
+                      className="text-red-600 hover:text-red-900"
+                      title="Sil"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+} 

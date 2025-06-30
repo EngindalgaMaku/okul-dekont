@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, ReactNode } from 'react'
+import { Fragment } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { X } from 'lucide-react'
 
@@ -8,18 +8,15 @@ interface ModalProps {
   isOpen: boolean
   onClose: () => void
   title: string
-  children: ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  children: React.ReactNode
 }
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
-  const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg', 
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl'
-  }
-
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children
+}: ModalProps) {
   return (
     <Transition.Root show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -32,11 +29,11 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" />
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
         </Transition.Child>
 
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -46,26 +43,25 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
               leaveFrom="opacity-100 translate-y-0 sm:scale-100"
               leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
-              <Dialog.Panel className={`relative transform overflow-hidden rounded-2xl bg-white/95 backdrop-blur-lg px-4 pb-4 pt-5 text-left shadow-2xl transition-all sm:my-8 sm:w-full ${sizeClasses[size]} sm:p-6 border border-indigo-100`}>
-                <div className="absolute right-0 top-0 pr-4 pt-4">
+              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
                   <button
                     type="button"
-                    className="rounded-lg bg-white/80 text-gray-400 hover:text-gray-500 hover:bg-white/90 p-2 transition-all duration-200"
+                    className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     onClick={onClose}
                   >
                     <span className="sr-only">Kapat</span>
-                    <X className="h-5 w-5" aria-hidden="true" />
+                    <X className="h-6 w-6" aria-hidden="true" />
                   </button>
                 </div>
-                <div className="sm:flex sm:items-start">
-                  <div className="w-full mt-3 text-center sm:ml-0 sm:mt-0 sm:text-left">
-                    <Dialog.Title as="h3" className="text-xl font-semibold leading-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">
-                      {title}
-                    </Dialog.Title>
-                    <div className="mt-2">
-                      {children}
-                    </div>
-                  </div>
+                <div>
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                  >
+                    {title}
+                  </Dialog.Title>
+                  <div>{children}</div>
                 </div>
               </Dialog.Panel>
             </Transition.Child>

@@ -67,27 +67,62 @@ export interface Database {
           updated_at?: string
         }
       }
-      isletmeler: {
+      stajlar: {
         Row: {
           id: string
-          ad: string
-          koordinator_ogretmen_id: string | null
-          created_at?: string
-          updated_at?: string
+          ogrenci_id: string
+          isletme_id: string
+          baslangic_tarihi: string
+          bitis_tarihi: string
+          durum: 'aktif' | 'tamamlandi' | 'iptal'
+          created_at: string
         }
         Insert: {
           id?: string
-          ad: string
-          koordinator_ogretmen_id?: string | null
+          ogrenci_id: string
+          isletme_id: string
+          baslangic_tarihi: string
+          bitis_tarihi: string
+          durum?: 'aktif' | 'tamamlandi' | 'iptal'
           created_at?: string
-          updated_at?: string
         }
         Update: {
           id?: string
-          ad?: string
-          koordinator_ogretmen_id?: string | null
+          ogrenci_id?: string
+          isletme_id?: string
+          baslangic_tarihi?: string
+          bitis_tarihi?: string
+          durum?: 'aktif' | 'tamamlandi' | 'iptal'
           created_at?: string
-          updated_at?: string
+        }
+      }
+      dekontlar: {
+        Row: {
+          id: string
+          staj_id: string
+          miktar: number
+          odeme_tarihi: string
+          dekont_dosyasi: string | null
+          onay_durumu: 'bekliyor' | 'onaylandi' | 'reddedildi'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          staj_id: string
+          miktar: number
+          odeme_tarihi: string
+          dekont_dosyasi?: string | null
+          onay_durumu?: 'bekliyor' | 'onaylandi' | 'reddedildi'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          staj_id?: string
+          miktar?: number
+          odeme_tarihi?: string
+          dekont_dosyasi?: string | null
+          onay_durumu?: 'bekliyor' | 'onaylandi' | 'reddedildi'
+          created_at?: string
         }
       }
     }

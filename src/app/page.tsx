@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { ChevronDownIcon, MagnifyingGlassIcon, BuildingOfficeIcon, AcademicCapIcon } from '@heroicons/react/24/outline'
 
 interface Isletme {
-    id: number
+    id: string
     ad: string
     yetkili_kisi: string
 }

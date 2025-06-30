@@ -186,8 +186,14 @@ export default function IsletmeDekontPage() {
       .from('dekontlar')
       .select(`
         *,
-        ogrenciler (ad, soyad, sinif),
-        ogretmenler (ad, soyad)
+        stajlar (
+          ogrenciler (
+            ad,
+            soyad,
+            sinif
+          )
+        ),
+        isletmeler (ad)
       `)
       .eq('isletme_id', selectedIsletme.id)
       .order('created_at', { ascending: false })
@@ -195,8 +201,38 @@ export default function IsletmeDekontPage() {
     if (error) {
       console.error('Dekontlar çekilirken hata:', error)
     } else {
-      setDekontlar(data || [])
-      setFilteredDekontlar(data || [])
+      const formattedData = data?.map(item => ({
+        id: item.id,
+        isletme_id: item.isletme_id,
+        staj_id: item.staj_id,
+        odeme_tarihi: item.odeme_tarihi,
+        tutar: item.tutar,
+        dosya_url: item.dosya_url,
+        aciklama: item.aciklama,
+        ay: item.ay,
+        yil: item.yil || new Date().getFullYear(),
+        onay_durumu: item.onay_durumu,
+        created_at: item.created_at,
+        stajlar: {
+          ogrenciler: item.stajlar?.length > 0 && item.stajlar[0].ogrenciler?.length > 0
+            ? {
+                ad: item.stajlar[0].ogrenciler[0].ad,
+                soyad: item.stajlar[0].ogrenciler[0].soyad,
+                sinif: item.stajlar[0].ogrenciler[0].sinif
+              }
+            : null
+        },
+        isletmeler: {
+          ad: item.isletmeler?.ad || ''
+        },
+        // Eski kodla uyumluluk için
+        miktar: item.tutar,
+        tarih: item.odeme_tarihi,
+        odeme_son_tarihi: item.odeme_son_tarihi,
+        dekont_dosyasi: item.dekont_dosyasi
+      })) || []
+      setDekontlar(formattedData)
+      setFilteredDekontlar(formattedData)
     }
   }
 
