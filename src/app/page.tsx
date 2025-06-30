@@ -157,8 +157,25 @@ export default function LoginPage() {
         }
 
         // Başarılı giriş
-        localStorage.setItem('isletme', JSON.stringify(selectedIsletme))
-        router.push('/panel')
+        try {
+          // Önce anonim bir oturum aç
+          const { data: { session }, error: sessionError } = await supabase.auth.signInAnonymously()
+          if (sessionError) {
+            setPinError('Oturum başlatılamadı: ' + sessionError.message)
+            return
+          }
+          if (!session) {
+            setPinError('Geçici oturum oluşturulamadı.')
+            return
+          }
+          
+          localStorage.setItem('isletme', JSON.stringify(selectedIsletme))
+          router.push('/panel')
+
+        } catch (sessionError) {
+            setPinError('Oturum başlatılırken bir hata oluştu.')
+            return
+        }
 
       } else if (loginType === 'ogretmen' && selectedOgretmen) {
         // Öğretmen pin kontrolü
@@ -191,8 +208,24 @@ export default function LoginPage() {
         }
 
         // Başarılı giriş
-        localStorage.setItem('ogretmen', JSON.stringify(selectedOgretmen))
-        router.push('/ogretmen')
+        try {
+          // Önce anonim bir oturum aç
+          const { data: { session }, error: sessionError } = await supabase.auth.signInAnonymously()
+          if (sessionError) {
+            setPinError('Oturum başlatılamadı: ' + sessionError.message)
+            return
+          }
+          if (!session) {
+            setPinError('Geçici oturum oluşturulamadı.')
+            return
+          }
+
+          localStorage.setItem('ogretmen', JSON.stringify(selectedOgretmen))
+          router.push('/ogretmen/panel')
+        } catch (sessionError) {
+          setPinError('Oturum başlatılırken bir hata oluştu.')
+          return
+        }
       }
     } catch (error) {
       setPinError('Beklenmeyen bir hata oluştu: ' + (error as Error).message)
