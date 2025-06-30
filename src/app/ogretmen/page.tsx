@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { GraduationCap, Users, FileText, LogOut, Building2, Upload, Eye, Filter, Calendar, CreditCard, User, Search, Loader2, Download } from 'lucide-react'
+import { GraduationCap, Users, FileText, LogOut, Building2, Upload, Eye, Filter, Calendar, CreditCard, User, Search, Loader2, Download, Trash2, Briefcase } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
 import Modal from '@/components/ui/Modal'
+import ConfirmModal from '@/components/ui/ConfirmModal'
 import DekontBildirim from '@/components/ui/DekontBildirim'
 import { Dekont, Ogretmen, Isletme, Stajyer, IsletmeBelgesi, ActiveTab } from '@/types/ogretmen'
 import { getStatusIcon, getStatusText, getStatusClass } from '@/utils/dekontHelpers'
@@ -46,20 +47,47 @@ export default function OgretmenPage() {
   const [belgeFile, setBelgeFile] = useState<File | null>(null)
   const [belgeAciklama, setBelgeAciklama] = useState('')
   const [belgeYuklemeLoading, setBelgeYuklemeLoading] = useState(false)
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState(false)
+  const [dekontToDelete, setDekontToDelete] = useState<Dekont | null>(null)
+  const [ekDekontBilgisi, setEkDekontBilgisi] = useState<{ count: number; message: string } | null>(null)
 
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    // LocalStorage'dan öğretmen bilgilerini al
     const storedOgretmen = localStorage.getItem('ogretmen')
     if (!storedOgretmen) {
       router.push('/')
       return
     }
-
     setOgretmen(JSON.parse(storedOgretmen))
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (!odemeTarihi || !selectedStajyer || !dekontlar.length) {
+      setEkDekontBilgisi(null);
+      return;
+    }
+
+    const [year, month] = odemeTarihi.split('-').map(Number);
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    const monthName = monthNames[month - 1];
+
+    const ekDekontSayisi = dekontlar.filter(d =>
+      d.staj_id.toString() === selectedStajyer &&
+      d.yil === year &&
+      d.ay.startsWith(monthName)
+    ).length;
+
+    if (ekDekontSayisi > 0) {
+      setEkDekontBilgisi({
+        count: ekDekontSayisi,
+        message: `Bu öğrenci için ${monthName} ${year} dönemine ait ${ekDekontSayisi} adet dekont zaten mevcut. Yeni bir dekont eklerseniz, bu "(Ek ${ekDekontSayisi})" olarak kaydedilecektir.`
+      });
+    } else {
+      setEkDekontBilgisi(null);
+    }
+  }, [odemeTarihi, selectedStajyer, dekontlar]);
 
   // Dekont filtreleme
   useEffect(() => {
@@ -175,32 +203,50 @@ export default function OgretmenPage() {
       .order('created_at', { ascending: false })
 
     if (dekontData) {
-      const formattedData = dekontData.map(item => ({
-        id: item.id,
-        isletme_id: item.isletme_id,
-        staj_id: item.staj_id,
-        odeme_tarihi: item.odeme_tarihi,
-        tutar: item.tutar,
-        dosya_url: item.dosya_url,
-        aciklama: item.aciklama,
-        ay: item.ay,
-        yil: item.yil || new Date().getFullYear(),
-        onay_durumu: item.onay_durumu,
-        created_at: item.created_at,
-        stajlar: {
-          ogrenciler: item.stajlar?.ogrenciler
-            ? {
-                ad: item.stajlar.ogrenciler.ad,
-                soyad: item.stajlar.ogrenciler.soyad,
-                sinif: item.stajlar.ogrenciler.sinif,
-                no: item.stajlar.ogrenciler.no
-              }
-            : null
-        },
-        isletmeler: {
-          ad: item.isletmeler?.ad
+      const formattedData = await Promise.all(dekontData.map(async (item) => {
+        let yukleyen_adi = 'Bilinmiyor';
+        if (item.yukleyen_rolu === 'ogretmen' && item.yukleyen_id) {
+          const { data: ogretmenData } = await supabase.from('ogretmenler').select('ad, soyad').eq('id', item.yukleyen_id).single();
+          if (ogretmenData) {
+            yukleyen_adi = `${ogretmenData.ad} ${ogretmenData.soyad}`;
+          }
+        } else if (item.yukleyen_rolu === 'isletme' && item.yukleyen_id) {
+          const { data: isletmeData } = await supabase.from('isletmeler').select('ad').eq('id', item.yukleyen_id).single();
+          if (isletmeData) {
+            yukleyen_adi = isletmeData.ad;
+          }
         }
-      }))
+        
+        return {
+          id: item.id,
+          isletme_id: item.isletme_id,
+          staj_id: item.staj_id,
+          odeme_tarihi: item.odeme_tarihi,
+          tutar: item.miktar,
+          dosya_url: item.dosya_url,
+          aciklama: item.aciklama,
+          ay: item.ay,
+          yil: item.yil || new Date().getFullYear(),
+          onay_durumu: item.onay_durumu,
+          created_at: item.created_at,
+          yukleyen_rolu: item.yukleyen_rolu,
+          yukleyen_id: item.yukleyen_id,
+          yukleyen_adi: yukleyen_adi,
+          stajlar: {
+            ogrenciler: item.stajlar?.ogrenciler
+              ? {
+                  ad: item.stajlar.ogrenciler.ad,
+                  soyad: item.stajlar.ogrenciler.soyad,
+                  sinif: item.stajlar.ogrenciler.sinif,
+                  no: item.stajlar.ogrenciler.no
+                }
+              : null
+          },
+          isletmeler: {
+            ad: item.isletmeler?.ad
+          }
+        };
+      }));
       setDekontlar(formattedData)
       setFilteredDekontlar(formattedData)
     }
@@ -215,42 +261,76 @@ export default function OgretmenPage() {
       const selectedStajyerData = stajyerler.find(s => s.staj_id.toString() === selectedStajyer)
       if (!selectedStajyerData) throw new Error('Stajyer bulunamadı')
 
-      // Dosya yükleme işlemi (gerçek uygulamada Supabase Storage kullanılır)
-      let dosyaUrl = `dekont_${Date.now()}_${dekontDosyasi.name}`
+      const [year, month] = odemeTarihi.split('-').map(Number);
+      const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+      const monthName = monthNames[month - 1];
 
-      const { error } = await supabase
+      const ekDekontSayisi = dekontlar.filter(d =>
+        d.staj_id.toString() === selectedStajyer &&
+        d.yil === year &&
+        d.ay.startsWith(monthName)
+      ).length;
+
+      let finalMonthName = monthName;
+      if (ekDekontSayisi > 0) {
+        const proceed = window.confirm(`Bu öğrenci için ${monthName} ${year} dönemine ait ${ekDekontSayisi} adet dekont zaten mevcut. Yeni bir dekont eklerseniz, bu "(Ek ${ekDekontSayisi})" olarak kaydedilecektir. Devam etmek istiyor musunuz?`);
+        if (!proceed) {
+          setUploadLoading(false);
+          return;
+        }
+        finalMonthName = `${monthName} (Ek ${ekDekontSayisi})`;
+      }
+
+      // 1. Dosyayı Supabase Storage'a yükle
+      const dosyaAdi = `dekont_${Date.now()}_${dekontDosyasi.name}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('dekontlar')
+        .upload(dosyaAdi, dekontDosyasi)
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      // 2. Veritabanına kaydet
+      const { error: insertError } = await supabase
         .from('dekontlar')
         .insert({
           staj_id: parseInt(selectedStajyer),
           isletme_id: selectedStajyerData.isletme.id,
           ogretmen_id: ogretmen.id,
-          tutar: miktar ? parseFloat(miktar) : null,
-          odeme_tarihi: odemeTarihi,
-          dosya_url: dosyaUrl,
-          onay_durumu: 'bekliyor'
+          miktar: miktar ? parseFloat(miktar) : null,
+          odeme_tarihi: `${odemeTarihi}-01`,
+          dosya_url: uploadData.path,
+          onay_durumu: 'bekliyor',
+          ay: finalMonthName,
+          yil: year,
+          yukleyen_rolu: 'ogretmen',
+          yukleyen_id: ogretmen.id.toString()
         })
 
-      if (error) throw error
+      if (insertError) {
+        await supabase.storage.from('dekontlar').remove([uploadData.path])
+        throw insertError
+      }
 
       // Form sıfırla
       setSelectedStajyer('')
       setMiktar('')
-      setOdemeTarihi(new Date().toISOString().split('T')[0])
+      setOdemeTarihi(new Date().toISOString().slice(0, 7))
       setDekontDosyasi(null)
       setUploadModal(false)
       
-      // Dekont listesini yenile
       fetchDekontlar()
 
-      // Başarı mesajı göster
       setNotification({ message: 'Dekont başarıyla yüklendi', type: 'success' })
       setTimeout(() => {
         setNotification(null)
       }, 3000)
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Dekont gönderme hatası:', error)
-      setNotification({ message: 'Dekont gönderilirken hata oluştu!', type: 'error' })
+      const errorMessage = error.message || 'Bilinmeyen bir hata oluştu.';
+      setNotification({ message: `Dekont gönderilemedi: ${errorMessage}`, type: 'error' })
     } finally {
       setUploadLoading(false)
     }
@@ -258,46 +338,20 @@ export default function OgretmenPage() {
 
   const handleDownload = async (filePath: string) => {
     try {
-      // Eğer URL ise direkt aç
-      if (filePath.startsWith('http')) {
-        window.open(filePath, '_blank');
-        return;
+      const { data, error } = await supabase.storage
+        .from('dekontlar')
+        .createSignedUrl(filePath, 60); // 60 saniye geçerli bir URL oluştur
+
+      if (error) {
+        throw error;
       }
 
-      // Storage'dan indirme dene
-      const { data, error } = await supabase.storage.from('dekontlar').download(filePath);
-      if (error) {
-        // Belgeler bucket'ını da dene
-        const { data: data2, error: error2 } = await supabase.storage.from('belgeler').download(filePath);
-        if (error2) {
-          throw new Error('Dosya bulunamadı');
-        }
-        const url = window.URL.createObjectURL(new Blob([data2]));
-        const link = document.createElement('a');
-        link.href = url;
-        const fileName = filePath.split('/').pop();
-        link.setAttribute('download', fileName || 'dekont');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode?.removeChild(link);
-      } else {
-        const url = window.URL.createObjectURL(new Blob([data]));
-        const link = document.createElement('a');
-        link.href = url;
-        const fileName = filePath.split('/').pop();
-        link.setAttribute('download', fileName || 'dekont');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode?.removeChild(link);
+      if (data) {
+        window.open(data.signedUrl, '_blank');
       }
     } catch (error: any) {
       console.error('Download error:', error.message);
-      // Son çare: dosya path'ini direkt aç
-      try {
-        window.open(filePath, '_blank');
-      } catch {
-        setNotification({ message: `Dosya indirilemedi: ${error.message}`, type: 'error' });
-      }
+      setNotification({ message: `Dosya indirilemedi: ${error.message}`, type: 'error' });
     }
   };
 
@@ -305,8 +359,6 @@ export default function OgretmenPage() {
     setSelectedDekont(dekont)
     setViewModal(true)
   }
-
-
 
   const handleLogout = () => {
     localStorage.removeItem('ogretmen')
@@ -372,6 +424,39 @@ export default function OgretmenPage() {
     }
   }
 
+  const handleDeleteDekont = async () => {
+    if (!dekontToDelete) return;
+
+    if (dekontToDelete.onay_durumu === 'onaylandi') {
+      setNotification({ message: 'Onaylanmış dekontlar silinemez.', type: 'error' });
+      setConfirmDeleteModal(false);
+      return;
+    }
+
+    try {
+      if (dekontToDelete.dosya_url) {
+        await supabase.storage.from('dekontlar').remove([dekontToDelete.dosya_url]);
+      }
+
+      const { error: dbError } = await supabase
+        .from('dekontlar')
+        .delete()
+        .eq('id', dekontToDelete.id);
+
+      if (dbError) throw dbError;
+
+      setDekontlar(prev => prev.filter(d => d.id !== dekontToDelete.id));
+      setNotification({ message: 'Dekont başarıyla silindi.', type: 'success' });
+
+    } catch (error: any) {
+      console.error('Dekont silme hatası:', error);
+      setNotification({ message: `Dekont silinirken bir hata oluştu: ${error.message}`, type: 'error' });
+    } finally {
+      setConfirmDeleteModal(false);
+      setDekontToDelete(null);
+    }
+  };
+
   if (loading || !ogretmen) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -399,11 +484,11 @@ export default function OgretmenPage() {
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 text-blue-100 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all duration-200"
+              className="flex items-center justify-center text-blue-100 hover:text-white bg-white/10 hover:bg-white/20 h-10 w-10 rounded-full transition-all duration-200"
               title="Çıkış Yap"
             >
               <LogOut className="h-5 w-5" />
-              <span className="font-medium">Çıkış Yap</span>
+              <span className="sr-only">Çıkış Yap</span>
             </button>
           </div>
         </div>
@@ -473,32 +558,37 @@ export default function OgretmenPage() {
                           Öğrenciler
                         </h4>
                         <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
-                          {stajyerler.filter(stajyer => stajyer.isletme.id === isletme.id).length} Öğrenci
+                          {stajyerler.filter((stajyer: Stajyer) => stajyer.isletme.id === isletme.id).length} Öğrenci
                         </span>
                       </div>
                       
                       <div className="space-y-3 max-h-48 overflow-y-auto">
                         {stajyerler
-                          .filter(stajyer => stajyer.isletme.id === isletme.id)
+                          .filter((stajyer: Stajyer) => stajyer.isletme.id === isletme.id)
                           .map(ogrenci => (
                             <div key={ogrenci.id} className="bg-gray-50 hover:bg-gray-100 rounded-xl p-4 border border-gray-200 transition-all duration-200">
                               <div className="flex items-center justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                    <div className="p-2 bg-blue-100 rounded-lg mt-1">
                                       <User className="h-4 w-4 text-blue-600" />
                                     </div>
-                                    <div>
+                                    <div className="flex-1">
                                       <p className="font-semibold text-gray-800">{ogrenci.ad} {ogrenci.soyad}</p>
-                                      <p className="text-sm text-gray-600 flex items-center gap-1">
-                                        <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-md text-xs font-medium">
-                                          {ogrenci.sinif}
-                                        </span>
-                                        <span className="text-gray-400">•</span>
-                                        <span>No: {ogrenci.no}</span>
-                                        <span className="text-gray-400">•</span>
-                                        <span>{ogrenci.alan}</span>
-                                      </p>
+                                      <div className="text-sm text-gray-600 mt-1">
+                                        <div className="flex items-center gap-x-3">
+                                          <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-md text-xs font-medium">
+                                            {ogrenci.sinif}
+                                          </span>
+                                          <span className="flex items-center gap-1 text-xs">
+                                            No: {ogrenci.no}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-1 pt-1">
+                                          <Briefcase className="h-3 w-3 text-gray-400" />
+                                          <span>{ogrenci.alan}</span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -507,8 +597,9 @@ export default function OgretmenPage() {
                                     setSelectedStajyer(ogrenci.staj_id.toString())
                                     setDekontDosyasi(null)
                                     setMiktar('')
-                                    setOdemeTarihi(new Date().toISOString().split('T')[0])
+                                    setOdemeTarihi(new Date().toISOString().slice(0,7))
                                     setUploadSuccess(false)
+                                    setEkDekontBilgisi(null)
                                     setUploadModal(true)
                                   }}
                                   className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
@@ -521,7 +612,7 @@ export default function OgretmenPage() {
                           ))}
                       </div>
                       
-                      {stajyerler.filter(stajyer => stajyer.isletme.id === isletme.id).length === 0 && (
+                      {stajyerler.filter((stajyer: Stajyer) => stajyer.isletme.id === isletme.id).length === 0 && (
                         <div className="text-center py-8">
                           <div className="p-3 bg-gray-100 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-3">
                             <Users className="h-8 w-8 text-gray-400" />
@@ -603,6 +694,13 @@ export default function OgretmenPage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-gray-600 flex items-center gap-2">
+                            <Upload className="h-4 w-4 text-gray-400" />
+                            Yükleyen:
+                          </span>
+                          <span className="font-medium text-gray-700">{dekont.yukleyen_adi}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600 flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-gray-400" />
                             Dönem:
                           </span>
@@ -621,7 +719,7 @@ export default function OgretmenPage() {
                     </div>
 
                     {/* Footer */}
-                    <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 flex justify-end">
+                    <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 flex justify-end gap-2">
                       <button
                         onClick={() => dekont.dosya_url ? handleDownload(dekont.dosya_url) : alert('Dosya henüz yüklenmemiş!')}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 shadow-sm"
@@ -630,6 +728,18 @@ export default function OgretmenPage() {
                         <Download className="h-4 w-4" />
                         <span className="text-sm font-medium">İndir</span>
                       </button>
+                      {dekont.onay_durumu !== 'onaylandi' && (
+                        <button
+                          onClick={() => {
+                            setDekontToDelete(dekont);
+                            setConfirmDeleteModal(true);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 shadow-sm"
+                          title="Dekontu Sil"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -643,6 +753,7 @@ export default function OgretmenPage() {
                       <th className="p-3 font-semibold text-left">Öğrenci</th>
                       <th className="p-3 font-semibold text-left">İşletme</th>
                       <th className="p-3 font-semibold text-left">Dönem</th>
+                      <th className="p-3 font-semibold text-left">Yükleyen</th>
                       <th className="p-3 font-semibold text-left">Durum</th>
                       <th className="p-3 font-semibold text-right">İşlemler</th>
                     </tr>
@@ -656,6 +767,7 @@ export default function OgretmenPage() {
                         </td>
                         <td className="p-3">{dekont.isletmeler?.ad}</td>
                         <td className="p-3">{dekont.ay} {dekont.yil}</td>
+                        <td className="p-3">{dekont.yukleyen_adi}</td>
                         <td className="p-3">
                           <span className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium ${getStatusClass(dekont.onay_durumu)}`}>
                             {getStatusIcon(dekont.onay_durumu)}
@@ -663,7 +775,7 @@ export default function OgretmenPage() {
                           </span>
                         </td>
                         <td className="p-3">
-                          <div className="flex items-center justify-end">
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => dekont.dosya_url ? handleDownload(dekont.dosya_url) : alert('Dosya henüz yüklenmemiş!')}
                               className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 shadow-sm"
@@ -672,6 +784,18 @@ export default function OgretmenPage() {
                               <Download className="h-4 w-4" />
                               <span className="text-sm font-medium">İndir</span>
                             </button>
+                             {dekont.onay_durumu !== 'onaylandi' && (
+                              <button
+                                onClick={() => {
+                                  setDekontToDelete(dekont);
+                                  setConfirmDeleteModal(true);
+                                }}
+                                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 shadow-sm"
+                                title="Dekontu Sil"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -684,11 +808,9 @@ export default function OgretmenPage() {
         </div>
       </main>
 
-      <footer className="bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 text-white mx-6 mb-6 rounded-2xl shadow-xl overflow-hidden">
-        <div className="py-6 px-6 text-center">
-          <p className="text-sm text-blue-100 font-medium">
-            © {new Date().getFullYear()} {okulAdi} - Koordinatörlük Yönetim Sistemi. Tüm Hakları Saklıdır.
-          </p>
+      <footer className="bg-slate-900 text-slate-400 py-5 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
+          <p>© {new Date().getFullYear()} {okulAdi}</p>
         </div>
       </footer>
 
@@ -769,7 +891,10 @@ export default function OgretmenPage() {
       {uploadModal && (
         <Modal 
           isOpen={uploadModal} 
-          onClose={() => setUploadModal(false)}
+          onClose={() => {
+            setUploadModal(false);
+            setEkDekontBilgisi(null);
+          }}
           title="Yeni Dekont Yükle"
         >
           <div className="max-w-2xl mx-auto">
@@ -784,6 +909,11 @@ export default function OgretmenPage() {
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                  {ekDekontBilgisi && (
+                    <div className="mt-2 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-r-lg">
+                      <p className="text-sm font-medium">{ekDekontBilgisi.message}</p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tutar (Opsiyonel)</label>
@@ -925,6 +1055,16 @@ export default function OgretmenPage() {
             </button>
           </form>
         </Modal>
+      )}
+
+      {confirmDeleteModal && (
+        <ConfirmModal
+          isOpen={confirmDeleteModal}
+          onClose={() => setConfirmDeleteModal(false)}
+          onConfirm={handleDeleteDekont}
+          title="Dekontu Sil"
+          description="Bu dekontu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+        />
       )}
     </div>
   )

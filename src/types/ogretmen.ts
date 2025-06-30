@@ -6,7 +6,7 @@ export interface Dekont {
   tutar: number
   dosya_url?: string
   aciklama?: string
-  ay: number
+  ay: string
   yil: number
   onay_durumu: 'bekliyor' | 'onaylandi' | 'reddedildi'
   created_at: string
@@ -21,6 +21,9 @@ export interface Dekont {
   isletmeler: {
     ad: string
   }
+  yukleyen_rolu?: string
+  yukleyen_id?: string
+  yukleyen_adi?: string
   // Eski kodla uyumluluk için
   tarih?: string
   miktar?: number
