@@ -19,15 +19,15 @@ interface Ogrenci {
 
 interface OgrenciTablosuProps {
   ogrenciler: Ogrenci[]
-  isletmeId: number
-  dekontlar: Dekont[]
-  onDekontSuccess: () => void
+  isletmeId?: number
+  dekontlar?: Dekont[]
+  onDekontSuccess?: () => void
 }
 
 export default function OgrenciTablosu({
   ogrenciler,
   isletmeId,
-  dekontlar,
+  dekontlar = [],
   onDekontSuccess
 }: OgrenciTablosuProps) {
   const [selectedOgrenci, setSelectedOgrenci] = useState<Ogrenci | null>(null)
@@ -38,6 +38,9 @@ export default function OgrenciTablosu({
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('tr-TR')
   }
+
+  // Dekont işlemlerinin aktif olup olmadığını kontrol et
+  const isDekontEnabled = isletmeId !== undefined && onDekontSuccess !== undefined
 
   return (
     <div className="space-y-4">
@@ -55,31 +58,33 @@ export default function OgrenciTablosu({
                 {formatDate(ogrenci.baslangic_tarihi)} - {formatDate(ogrenci.bitis_tarihi)}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setSelectedOgrenci(ogrenci)
-                  setDekontModalOpen(true)
-                }}
-                className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-              >
-                <Upload className="h-4 w-4" />
-                Dekont Yükle
-              </button>
-              <button
-                onClick={() => {
-                  const ogrenciDekontlari = dekontlar.filter(
-                    (d) => d.staj_id === ogrenci.staj_id
-                  )
-                  setSelectedOgrenciDekontlar(ogrenciDekontlari)
-                  setDekontViewModalOpen(true)
-                }}
-                className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-              >
-                <Eye className="h-4 w-4" />
-                Dekontları Gör
-              </button>
-            </div>
+            {isDekontEnabled && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedOgrenci(ogrenci)
+                    setDekontModalOpen(true)
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  Dekont Yükle
+                </button>
+                <button
+                  onClick={() => {
+                    const ogrenciDekontlari = dekontlar.filter(
+                      (d) => d.staj_id === ogrenci.staj_id
+                    )
+                    setSelectedOgrenciDekontlar(ogrenciDekontlari)
+                    setDekontViewModalOpen(true)
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                >
+                  <Eye className="h-4 w-4" />
+                  Dekontları Gör
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ))}
@@ -91,7 +96,7 @@ export default function OgrenciTablosu({
       )}
 
       {/* Dekont Yükleme Modal */}
-      {dekontModalOpen && selectedOgrenci && (
+      {isDekontEnabled && dekontModalOpen && selectedOgrenci && isletmeId && onDekontSuccess && (
         <DekontModal
           isOpen={dekontModalOpen}
           onClose={() => {

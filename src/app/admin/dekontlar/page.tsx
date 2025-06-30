@@ -357,7 +357,6 @@ export default function DekontYonetimiPage() {
         isOpen={viewModal}
         onClose={() => setViewModal(false)}
         title="Dekont Detayları"
-        size="lg"
       >
         {selectedDekont && (
           <div className="space-y-6">

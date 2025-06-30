@@ -1943,7 +1943,6 @@ function OgrencilerPanel({
           setStajDuzenleFormData({ baslangic_tarihi: '', bitis_tarihi: '' })
         }}
         title={selectedStaj ? `${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} - Staj Tarihlerini Düzenle` : 'Staj Düzenle'}
-        size="md"
       >
         <div className="space-y-4">
           <div>
@@ -2010,7 +2009,6 @@ function OgrencilerPanel({
           setFesihFormData({ fesih_tarihi: '' })
         }}
         title={selectedStaj ? `${selectedStaj.ogrenciler.ad} ${selectedStaj.ogrenciler.soyad} - Stajı Feshet` : 'Stajı Feshet'}
-        size="md"
       >
         <div className="space-y-4">
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">

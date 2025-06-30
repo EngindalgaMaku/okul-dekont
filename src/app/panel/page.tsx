@@ -794,7 +794,6 @@ export default function PanelPage() {
         isOpen={belgeViewModal}
         onClose={() => setBelgeViewModal(false)}
         title="Belge Detayları"
-        size="lg"
       >
         {selectedBelge && (
           <div className="space-y-6">
@@ -873,7 +872,6 @@ export default function PanelPage() {
           setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
         }}
         title={selectedOgrenci ? `${selectedOgrenci.ad} ${selectedOgrenci.soyad} - Dekont Yükle` : 'Dekont Yükle'}
-        size="lg"
       >
         <div className="space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -1011,7 +1009,6 @@ export default function PanelPage() {
           setSelectedOgrenciDekontlar([])
         }}
         title={selectedOgrenci ? `${selectedOgrenci.ad} ${selectedOgrenci.soyad} - Dekontlar` : 'Dekontlar'}
-        size="lg"
       >
         <div className="space-y-4">
           {selectedOgrenci && (
@@ -1102,7 +1099,6 @@ export default function PanelPage() {
           setSelectedDekont(null)
         }}
         title="Dekont Detayları"
-        size="lg"
       >
         {selectedDekont && (
           <div className="space-y-6">

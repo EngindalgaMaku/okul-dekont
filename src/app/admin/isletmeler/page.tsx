@@ -627,7 +627,6 @@ export default function IsletmeYonetimiPage() {
         isOpen={addModal}
         onClose={() => setAddModal(false)}
         title="Yeni İşletme Ekle"
-        size="lg"
       >
         <div className="space-y-4">
           <div>
@@ -791,7 +790,6 @@ export default function IsletmeYonetimiPage() {
         isOpen={editModal}
         onClose={() => setEditModal(false)}
         title="İşletmeyi Düzenle"
-        size="lg"
       >
         <div className="space-y-4">
           <div>

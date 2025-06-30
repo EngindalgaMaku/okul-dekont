@@ -110,60 +110,68 @@ export default function OgretmenPanelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-md rounded-lg p-4 mb-6 max-w-7xl mx-auto mt-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-800">
-              Hoş Geldiniz, {session.ogretmen.ad} {session.ogretmen.soyad}
-            </h1>
-            <p className="text-sm text-gray-500">Öğretmen Paneli</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <header className="bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 shadow-xl rounded-2xl mx-6 mt-6 mb-8 overflow-hidden">
+        <div className="py-6 px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                <User className="h-8 w-8 text-white" />
+              </div>
+              <div className="ml-4">
+                <h1 className="text-2xl font-bold text-white">
+                  Hoş Geldiniz, {session.ogretmen.ad} {session.ogretmen.soyad}
+                </h1>
+                <p className="text-sm text-blue-100 font-medium">Öğretmen Paneli</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-blue-100 hover:text-white bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-all duration-200"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="font-medium">Çıkış Yap</span>
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 text-white hover:bg-red-600 font-semibold py-2 px-4 rounded-lg shadow-md transition-colors duration-300 flex items-center"
-          >
-            <LogOut className="mr-2 h-4 w-4" /> Çıkış Yap
-          </button>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-6">
+          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-full mr-4">
-                <Building2 className="h-6 w-6 text-blue-600" />
+              <div className="p-3 bg-white/20 rounded-full mr-4 backdrop-blur-sm">
+                <Building2 className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Toplam İşletme</p>
-                <p className="text-2xl font-bold text-gray-900">{isletmeler.length}</p>
+                <p className="text-sm font-medium text-blue-100">Toplam İşletme</p>
+                <p className="text-2xl font-bold text-white">{isletmeler.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg border border-yellow-100 p-6">
+          <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-full mr-4">
-                <Clock className="h-6 w-6 text-yellow-600" />
+              <div className="p-3 bg-white/20 rounded-full mr-4 backdrop-blur-sm">
+                <Clock className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Bekleyen Dekontlar</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-yellow-100">Bekleyen Dekontlar</p>
+                <p className="text-2xl font-bold text-white">
                   {dekontlar.filter((d: any) => d.onay_durumu === 'bekliyor').length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg border border-green-100 p-6">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
             <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-full mr-4">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div className="p-3 bg-white/20 rounded-full mr-4 backdrop-blur-sm">
+                <CheckCircle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Onaylanan Dekontlar</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-green-100">Onaylanan Dekontlar</p>
+                <p className="text-2xl font-bold text-white">
                   {dekontlar.filter((d: any) => d.onay_durumu === 'onaylandi').length}
                 </p>
               </div>
@@ -260,7 +268,6 @@ export default function OgretmenPanelPage() {
           isOpen={dekontDetailModalOpen}
           onClose={() => setDekontDetailModalOpen(false)}
           title="Dekont Detayları"
-          size="lg"
         >
           {selectedDekont && (
             <div className="space-y-6">
