@@ -12,7 +12,6 @@ export default function DekontUpload({ onSubmit, isLoading, stajId }: DekontUplo
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState<DekontFormData>({
     staj_id: stajId,
-    odeme_tarihi: new Date().toISOString().split('T')[0],
     tutar: 0,
     ay: new Date().getMonth() + 1,
     yil: new Date().getFullYear(),
@@ -23,10 +22,6 @@ export default function DekontUpload({ onSubmit, isLoading, stajId }: DekontUplo
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof DekontFormData, string>> = {}
-
-    if (!formData.odeme_tarihi) {
-      newErrors.odeme_tarihi = 'Ödeme tarihi gereklidir'
-    }
 
     if (!formData.tutar || formData.tutar <= 0) {
       newErrors.tutar = 'Geçerli bir tutar giriniz'
@@ -64,7 +59,6 @@ export default function DekontUpload({ onSubmit, isLoading, stajId }: DekontUplo
       // Reset form after successful submission
       setFormData({
         staj_id: stajId,
-        odeme_tarihi: new Date().toISOString().split('T')[0],
         tutar: 0,
         ay: new Date().getMonth() + 1,
         yil: new Date().getFullYear(),
@@ -97,22 +91,6 @@ export default function DekontUpload({ onSubmit, isLoading, stajId }: DekontUplo
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div>
-          <label htmlFor="odeme_tarihi" className="block text-sm font-medium text-gray-700">
-            Ödeme Tarihi
-          </label>
-          <input
-            type="date"
-            id="odeme_tarihi"
-            value={formData.odeme_tarihi}
-            onChange={(e) => setFormData(prev => ({ ...prev, odeme_tarihi: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-          />
-          {errors.odeme_tarihi && (
-            <p className="mt-1 text-sm text-red-600">{errors.odeme_tarihi}</p>
-          )}
-        </div>
-
         <div>
           <label htmlFor="tutar" className="block text-sm font-medium text-gray-700">
             Tutar (TL)
@@ -198,7 +176,7 @@ export default function DekontUpload({ onSubmit, isLoading, stajId }: DekontUplo
                     htmlFor="file-upload"
                     className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
                   >
-                    <span>Dosya yükle</span>
+                    <span>Dosya Seç</span>
                     <input
                       id="file-upload"
                       name="file-upload"
@@ -212,16 +190,19 @@ export default function DekontUpload({ onSubmit, isLoading, stajId }: DekontUplo
                   <p className="pl-1">veya sürükleyip bırakın</p>
                 </div>
                 <p className="text-xs text-gray-500">
-                  PDF, PNG, JPG (max. 10MB)
+                  PDF, JPG veya PNG (max. 10MB)
                 </p>
               </>
             ) : (
-              <div className="flex items-center justify-between bg-gray-50 px-4 py-3 rounded">
-                <span className="text-sm text-gray-500">{selectedFile.name}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Upload className="h-6 w-6 text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-500">{selectedFile.name}</span>
+                </div>
                 <button
                   type="button"
                   onClick={handleRemoveFile}
-                  className="text-red-600 hover:text-red-900"
+                  className="text-red-600 hover:text-red-800"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -238,18 +219,9 @@ export default function DekontUpload({ onSubmit, isLoading, stajId }: DekontUplo
         <button
           type="submit"
           disabled={isLoading}
-          className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-            isLoading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
+          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-              Yükleniyor...
-            </>
-          ) : (
-            'Dekont Yükle'
-          )}
+          {isLoading ? 'Yükleniyor...' : 'Dekont Yükle'}
         </button>
       </div>
     </form>

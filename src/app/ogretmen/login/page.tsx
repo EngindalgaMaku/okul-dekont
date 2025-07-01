@@ -1,246 +1,230 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { LogIn, User, Key, Loader, Eye, EyeOff, GraduationCap } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { User, Lock, Building, ChevronDown, Loader } from 'lucide-react'
+
+interface Ogretmen {
+  id: string
+  ad: string
+  soyad: string
+}
 
 export default function OgretmenLoginPage() {
   const router = useRouter()
-  const [formData, setFormData] = useState({
-    ad: '',
-    soyad: '',
-    pin: ''
-  })
-  const [loading, setLoading] = useState(false)
-  const [showPin, setShowPin] = useState(false)
-  const [error, setError] = useState('')
+  const [ogretmenler, setOgretmenler] = useState<Ogretmen[]>([])
+  const [selectedOgretmen, setSelectedOgretmen] = useState<Ogretmen | null>(null)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+  useEffect(() => {
+    fetchOgretmenler()
+  }, [])
 
+  const fetchOgretmenler = async () => {
     try {
-      // Önce öğretmeni adı ve soyadı ile bul
-      const { data: ogretmen, error: ogretmenError } = await supabase
+      setLoading(true)
+      console.log('Öğretmenler getiriliyor...')
+
+      const { data, error } = await supabase
         .from('ogretmenler')
-        .select(`
-          id,
-          ad,
-          soyad,
-          pin,
-          aktif,
-          hesap_kilitli,
-          yanlis_pin_sayisi,
-          kilitlenme_tarihi,
-          isletmeler (
-            id,
-            ad,
-            yetkili_kisi
-          )
-        `)
-        .eq('ad', formData.ad.trim())
-        .eq('soyad', formData.soyad.trim())
-        .eq('aktif', true)
-        .single()
-
-      if (ogretmenError || !ogretmen) {
-        setError('Öğretmen bilgileri hatalı veya hesap aktif değil!')
-        setLoading(false)
-        return
-      }
-
-      // Pin kontrolü için veritabanı fonksiyonunu kullan
-      const { data: pinResult, error: pinError } = await supabase
-        .rpc('check_ogretmen_pin_giris', {
-          p_ogretmen_id: ogretmen.id,
-          p_girilen_pin: formData.pin.trim(),
-          p_ip_adresi: window.location.hostname,
-          p_user_agent: navigator.userAgent
-        })
-
-      if (pinError) {
-        console.error('Pin kontrol hatası:', pinError)
-        setError('Bir hata oluştu. Lütfen tekrar deneyin.')
-        setLoading(false)
-        return
-      }
-
-      if (!pinResult.basarili) {
-        if (pinResult.kilitli) {
-          setError(pinResult.mesaj + (pinResult.kilitlenme_tarihi ? 
-            ` (${new Date(pinResult.kilitlenme_tarihi).toLocaleString('tr-TR')})` : ''))
-        } else {
-          setError(pinResult.mesaj)
-        }
-        setLoading(false)
-        return
-      }
-
-      // Session token oluştur
-      const sessionToken = `ogr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      const expiresAt = new Date()
-      expiresAt.setHours(expiresAt.getHours() + 8) // 8 saat geçerli
-
-      // Session kaydet
-      const { error: sessionError } = await supabase
-        .from('ogretmen_sessions')
-        .insert([{
-          ogretmen_id: ogretmen.id,
-          session_token: sessionToken,
-          expires_at: expiresAt.toISOString()
-        }])
-
-      if (sessionError) {
-        console.error('Session oluşturma hatası:', sessionError)
-      }
-
-      // Local storage'a kaydet
-      localStorage.setItem('ogretmen_session', JSON.stringify({
-        token: sessionToken,
-        ogretmen: {
-          id: ogretmen.id,
-          ad: ogretmen.ad,
-          soyad: ogretmen.soyad,
-          isletmeler: ogretmen.isletmeler || []
-        },
-        expires_at: expiresAt.toISOString()
-      }))
-
-      // Öğretmen paneline yönlendir
-      router.push('/ogretmen/panel')
+        .select('id, ad, soyad')
+        .order('ad', { ascending: true })
       
+      console.log('Gelen veri:', data)
+
+      if (error) {
+        console.error('Öğretmenler getirilemedi:', error)
+        alert('Öğretmen listesi alınamadı: ' + error.message)
+        return
+      }
+
+      if (!data || data.length === 0) {
+        console.log('Hiç öğretmen bulunamadı')
+        alert('Sistemde öğretmen bulunamadı.')
+        return
+      }
+
+      setOgretmenler(data)
     } catch (error) {
-      console.error('Giriş hatası:', error)
-      setError('Bir hata oluştu. Lütfen tekrar deneyin.')
+      console.error('Beklenmeyen hata:', error)
+      alert('Bir hata oluştu: ' + (error as Error).message)
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="max-w-md w-full">
-        {/* Header - Mobil Uyumlu */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="flex justify-center mb-3 sm:mb-4">
-            <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg">
-              <GraduationCap className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-            </div>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Öğretmen Girişi
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-2 px-2">
-            Koordinatörlük yaptığınız işletmeleri yönetmek için giriş yapın
-          </p>
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedOgretmen) {
+      setPinError('Lütfen bir öğretmen seçin')
+      return
+    }
+
+    if (!pinInput.trim() || pinInput.length !== 4) {
+      setPinError('PIN kodu 4 haneli olmalıdır')
+      return
+    }
+
+    try {
+      setPinError('')
+      
+      // PIN kontrolü
+      const { data: pinResult, error: pinError } = await supabase
+        .rpc('check_ogretmen_pin_giris', {
+          p_ogretmen_id: selectedOgretmen.id,
+          p_girilen_pin: pinInput,
+          p_ip_adresi: '127.0.0.1',
+          p_user_agent: navigator.userAgent
+        })
+
+      if (pinError) {
+        setPinError('Sistem hatası: ' + pinError.message)
+        return
+      }
+
+      if (!pinResult) {
+        setPinError('PIN kontrol fonksiyonu yanıt vermedi')
+        return
+      }
+
+      if (!pinResult.basarili) {
+        if (pinResult.kilitli) {
+          setPinError(pinResult.mesaj + (pinResult.kilitlenme_tarihi ? 
+            ` (${new Date(pinResult.kilitlenme_tarihi).toLocaleString('tr-TR')})` : ''))
+        } else {
+          setPinError(pinResult.mesaj)
+        }
+        return
+      }
+
+      // Başarılı giriş - localStorage'a kaydet
+      localStorage.setItem('ogretmen', JSON.stringify(selectedOgretmen))
+      router.push('/ogretmen/panel')
+
+    } catch (error) {
+      setPinError('Beklenmeyen bir hata oluştu: ' + (error as Error).message)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-xl shadow-lg">
+          <Loader className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
         </div>
+      </div>
+    )
+  }
 
-        {/* Login Form - Mobil Uyumlu */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border border-blue-100 p-6 sm:p-8">
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-            {/* Ad - Mobil Uyumlu */}
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Adınız
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.ad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ad: e.target.value }))}
-                  className="pl-9 sm:pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm sm:text-base"
-                  placeholder="Adınızı girin"
-                  required
-                />
-              </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="p-8">
+          <div className="text-center mb-8">
+            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <User className="h-8 w-8 text-blue-600" />
             </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Öğretmen Girişi</h1>
+            <p className="text-gray-600">Kimliğinizi seçin ve PIN kodunuzu girin</p>
+          </div>
 
-            {/* Soyad - Mobil Uyumlu */}
+          <form onSubmit={handlePinSubmit} className="space-y-6">
+            {/* Öğretmen Seçimi */}
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                Soyadınız
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Öğretmen Seçin
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.soyad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, soyad: e.target.value }))}
-                  className="pl-9 sm:pl-10 pr-4 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm sm:text-base"
-                  placeholder="Soyadınızı girin"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* PIN - Mobil Uyumlu */}
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                PIN Kodunuz
-              </label>
-              <div className="relative">
-                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                <input
-                  type={showPin ? "text" : "password"}
-                  value={formData.pin}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 4)
-                    setFormData(prev => ({ ...prev, pin: value }))
-                  }}
-                  className="pl-9 sm:pl-10 pr-11 sm:pr-12 py-3 w-full border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-mono text-sm sm:text-base"
-                  placeholder="0000"
-                  maxLength={4}
-                  required
-                />
                 <button
                   type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex items-center justify-between"
                 >
-                  {showPin ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+                  {selectedOgretmen ? (
+                    <span className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-gray-400" />
+                      {selectedOgretmen.ad} {selectedOgretmen.soyad}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2 text-gray-400">
+                      <User className="h-5 w-5" />
+                      Öğretmen seçin...
+                    </span>
+                  )}
+                  <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {ogretmenler.map((ogretmen) => (
+                      <button
+                        key={ogretmen.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedOgretmen(ogretmen)
+                          setIsDropdownOpen(false)
+                          setPinError('')
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none flex items-center gap-2"
+                      >
+                        <User className="h-4 w-4 text-gray-400" />
+                        {ogretmen.ad} {ogretmen.soyad}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                4 haneli PIN kodunuzu girin
-              </p>
             </div>
 
-            {/* Error Message - Mobil Uyumlu */}
-            {error && (
+            {/* PIN Girişi */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                PIN Kodu
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="password"
+                  value={pinInput}
+                  onChange={(e) => {
+                    setPinInput(e.target.value)
+                    setPinError('')
+                  }}
+                  maxLength={4}
+                  placeholder="PIN kodunuzu girin"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-lg tracking-widest"
+                  disabled={!selectedOgretmen}
+                />
+              </div>
+            </div>
+
+            {pinError && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 text-xs sm:text-sm">{error}</p>
+                <p className="text-red-600 text-sm">{pinError}</p>
               </div>
             )}
 
-            {/* Submit Button - Mobil Uyumlu */}
             <button
               type="submit"
-              disabled={loading || !formData.ad.trim() || !formData.soyad.trim() || !formData.pin.trim()}
-              className="w-full inline-flex items-center justify-center px-4 sm:px-6 py-3 text-sm sm:text-base font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent rounded-xl shadow-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200"
+              disabled={!selectedOgretmen || !pinInput}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? (
-                <>
-                  <Loader className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
-                  <span className="hidden sm:inline">Giriş Yapılıyor...</span>
-                  <span className="sm:hidden">Giriş...</span>
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                  Giriş Yap
-                </>
-              )}
+              Giriş Yap
             </button>
           </form>
 
-          {/* Footer - Mobil Uyumlu */}
-          <div className="mt-4 sm:mt-6 text-center">
-            <p className="text-xs text-gray-500 px-2">
-              Giriş sorunları için okul yönetimi ile iletişime geçin
-            </p>
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => router.push('/')}
+              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              ← Ana sayfaya dön
+            </button>
           </div>
         </div>
       </div>

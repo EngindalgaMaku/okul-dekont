@@ -2,503 +2,821 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, FileText, LogOut, Loader, User, Phone, Mail, CheckCircle, Clock, XCircle, Upload, Plus, Download } from 'lucide-react'
+import { Building2, FileText, LogOut, Loader, User, Receipt, GraduationCap, CheckCircle, Clock, XCircle, Download, Plus, Upload, Trash2, Calendar, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/ui/Modal'
+import DekontUploadForm from '@/components/ui/DekontUpload'
+import DekontCard from '@/components/ui/DekontCard'
+import { DekontFormData } from '@/types/dekont'
 
-interface OgretmenSession {
-  ogretmen: {
-    id: number;
-    ad: string;
-    soyad: string;
-    email?: string;
-    telefon?: string;
-    alan_id?: number;
-  }
+// TypeScript Arayüzleri
+interface Ogrenci {
+  id: string;
+  ad: string;
+  soyad: string;
+  no: string;
+  sinif: string;
+  alan: string;
+  staj_id?: number;
+}
+
+interface Isletme {
+  id: string;
+  ad: string;
+  ogrenciler: Ogrenci[];
+  yukleyen_kisi: string;
+}
+
+interface Dekont {
+  id: number;
+  isletme_ad: string;
+  ogrenci_ad: string;
+  miktar: number | null;
+  odeme_tarihi: string;
+  onay_durumu: 'bekliyor' | 'onaylandi' | 'reddedildi';
+  ay: string;
+  yil: number | string;
+  dosya_url?: string;
+  aciklama?: string;
+  red_nedeni?: string;
+  yukleyen_kisi: string;
 }
 
 interface Belge {
   id: number;
-  isletme_id: number;
-  ad: string;
-  tur: string;
-  dosya_url?: string;
-  yukleme_tarihi: string;
+  isletme_ad: string;
+  dosya_adi: string;
+  dosya_url: string;
+  belge_turu: string;
 }
 
-export default function OgretmenPanelPage() {
-  const router = useRouter()
-  const [session, setSession] = useState<OgretmenSession | null>(null)
-  const [isletmeler, setIsletmeler] = useState<any[]>([])
-  const [dekontlar, setDekontlar] = useState<any[]>([])
-  const [belgeler, setBelgeler] = useState<Belge[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedDekont, setSelectedDekont] = useState<any>(null)
-  const [dekontDetailModalOpen, setDekontDetailModalOpen] = useState(false)
+// Bileşenler
+const TeacherPanel = () => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [teacher, setTeacher] = useState<{ id: string; ad: string; soyad: string; } | null>(null);
+  const [isletmeler, setIsletmeler] = useState<Isletme[]>([]);
+  const [dekontlar, setDekontlar] = useState<Dekont[]>([]);
+  const [activeTab, setActiveTab] = useState<'isletmeler' | 'dekontlar'>('isletmeler');
 
-  const [belgeModalOpen, setBelgeModalOpen] = useState(false)
-  const [selectedIsletme, setSelectedIsletme] = useState<any>(null)
-  const [belgeFormData, setBelgeFormData] = useState({
-    ad: '',
-    tur: 'sozlesme',
-    dosya: null as File | null,
-  });
+  const [isDekontUploadModalOpen, setDekontUploadModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Ogrenci | null>(null);
+  const [selectedIsletme, setSelectedIsletme] = useState<Isletme | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isBelgeUploadModalOpen, setBelgeUploadModalOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
-    const storedSession = localStorage.getItem('ogretmen_session')
-    if (storedSession) {
-      const parsedSession = JSON.parse(storedSession)
-      setSession(parsedSession)
-      fetchOgretmenData(parsedSession.ogretmen.id)
-    } else {
-      router.push('/ogretmen/login')
-    }
-  }, [])
-
-  const fetchOgretmenData = async (ogretmenId: number) => {
-    setLoading(true)
-    try {
-      const { data: isletmelerData, error: isletmelerError } = await supabase
-        .from('isletmeler')
-        .select('*')
-        .eq('ogretmen_id', ogretmenId)
-
-      if (isletmelerError) {
-        console.error('İşletmeler getirme hatası:', isletmelerError)
-      } else {
-        setIsletmeler(isletmelerData || [])
+    const checkLocalStorage = () => {
+      const storedOgretmen = localStorage.getItem('ogretmen');
+      if (!storedOgretmen) {
+        router.push('/');
+        return;
       }
 
-      if (isletmelerData && isletmelerData.length > 0) {
-        const isletmeIds = isletmelerData.map((i: any) => i.id)
-        
-        const { data: dekontlarData, error: dekontlarError } = await supabase
+      try {
+        const teacherData = JSON.parse(storedOgretmen);
+        setTeacher(teacherData);
+        fetchOgretmenData(teacherData.id);
+      } catch (error) {
+        console.error('localStorage verisi geçersiz:', error);
+        localStorage.removeItem('ogretmen');
+        router.push('/');
+      }
+    };
+
+    checkLocalStorage();
+  }, [router]);
+
+  const fetchOgretmenData = async (teacherId: string) => {
+    setLoading(true);
+    try {
+      // Öğretmenin sorumlu olduğu stajları ve bu stajlar üzerinden işletme ve öğrenci bilgilerini çek
+      const { data: stajData, error: stajError } = await supabase
+        .from('stajlar')
+        .select(`
+          isletme_id,
+          ogrenci_id,
+          isletmeler (id, ad),
+          ogrenciler (id, ad, soyad, no, sinif, alanlar (ad))
+        `)
+        .eq('ogretmen_id', teacherId);
+
+      if (stajError) throw stajError;
+
+      // Verileri işletmelere göre grupla
+      const isletmeMap = new Map<string, Isletme>();
+      stajData.forEach((staj: any) => {
+        if (!staj.isletmeler || !staj.ogrenciler) return;
+
+        let isletme = isletmeMap.get(staj.isletmeler.id);
+        if (!isletme) {
+          isletme = {
+            id: staj.isletmeler.id,
+            ad: staj.isletmeler.ad,
+            ogrenciler: [],
+            yukleyen_kisi: 'Bilinmiyor',
+          };
+          isletmeMap.set(staj.isletmeler.id, isletme);
+        }
+        isletme.ogrenciler.push({
+          id: staj.ogrenciler.id,
+          ad: staj.ogrenciler.ad,
+          soyad: staj.ogrenciler.soyad,
+          no: staj.ogrenciler.no,
+          sinif: staj.ogrenciler.sinif,
+          alan: staj.ogrenciler.alanlar.ad,
+        });
+      });
+
+      const groupedIsletmeler = Array.from(isletmeMap.values());
+      setIsletmeler(groupedIsletmeler);
+
+      // Öğretmenin sorumlu olduğu işletmelerin dekontlarını getir
+      const isletmeIds = Array.from(isletmeMap.keys());
+      if (isletmeIds.length > 0) {
+        const { data: dekontData, error: dekontError } = await supabase
           .from('dekontlar')
           .select(`
-            id,
-            miktar,
-            odeme_tarihi,
-            odeme_son_tarihi,
-            ay,
-            yil,
-            onay_durumu,
-            red_nedeni,
-            isletme_id,
-            stajlar (
-              ogrenciler (
-                ad,
-                soyad
-              )
-            )
+            *,
+            stajlar(ogrenciler(ad, soyad)),
+            isletmeler(ad),
+            ogretmenler(ad, soyad)
           `)
           .in('isletme_id', isletmeIds)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false });
+        
+        if (dekontError) throw dekontError;
 
-        if (dekontlarError) {
-          console.error('Dekontlar getirme hatası:', dekontlarError)
-        } else {
-          setDekontlar(dekontlarData || [])
-        }
+        const formattedDekontlar = dekontData.map((d: any) => {
+          let yukleyenKisi = 'Bilinmiyor';
+          if (d.ogretmen_id && d.ogretmenler) {
+            yukleyenKisi = `${d.ogretmenler.ad} ${d.ogretmenler.soyad} (Öğretmen)`;
+          } else {
+            yukleyenKisi = `${d.isletmeler.ad} (İşletme)`;
+          }
 
-        const { data: belgelerData, error: belgelerError } = await supabase
-          .from('belgeler')
-          .select('*')
-          .in('isletme_id', isletmeIds);
-
-        if (belgelerError) {
-          console.error('Belgeler getirme hatası:', belgelerError);
-        } else {
-          setBelgeler(belgelerData || []);
-        }
+          return {
+            id: d.id,
+            isletme_ad: d.isletmeler.ad,
+            ogrenci_ad: d.stajlar ? `${d.stajlar.ogrenciler.ad} ${d.stajlar.ogrenciler.soyad}` : 'İlişkili Öğrenci Yok',
+            miktar: d.tutar,
+            odeme_tarihi: d.odeme_tarihi,
+            onay_durumu: d.onay_durumu,
+            ay: d.ay,
+            yil: d.yil,
+            dosya_url: d.dosya_url,
+            aciklama: d.aciklama,
+            red_nedeni: d.red_nedeni,
+            yukleyen_kisi: yukleyenKisi,
+          };
+        });
+        setDekontlar(formattedDekontlar);
       }
+
+      setLoading(false);
     } catch (error) {
-      console.error('Veri getirme hatası:', error)
+      console.error('Veri çekme hatası:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const findStajId = async (ogrenciId: string, isletmeId: string): Promise<number | null> => {
+    const { data, error } = await supabase
+      .from('stajlar')
+      .select('id')
+      .eq('ogrenci_id', ogrenciId)
+      .eq('isletme_id', isletmeId)
+      .single();
+
+    if (error || !data) {
+      console.error('Staj ID bulunamadı:', error);
+      alert('Bu öğrenci ve işletmeye ait staj kaydı bulunamadı. Dekont yüklenemiyor.');
+      return null;
+    }
+    return data.id;
+  };
 
   const handleLogout = () => {
-    localStorage.removeItem('ogretmen_session')
-    router.push('/ogretmen/login')
-  }
-
-  const handleBelgeUpload = async () => {
-    if (!selectedIsletme || !belgeFormData.dosya || !belgeFormData.ad.trim()) {
-      alert('Lütfen belge adını girin ve bir dosya seçin.');
-      return;
-    }
-
-    const file = belgeFormData.dosya;
-    const fileName = `${Date.now()}-${file.name}`;
-    const filePath = `belgeler/${selectedIsletme.id}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('belgeler')
-      .upload(filePath, file);
-
-    if (uploadError) {
-      console.error('Dosya yükleme hatası:', uploadError);
-      alert('Dosya yüklenirken bir hata oluştu.');
-      return;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('belgeler')
-      .getPublicUrl(filePath);
-
-    const { error: dbError } = await supabase.from('belgeler').insert({
-      isletme_id: selectedIsletme.id,
-      ad: belgeFormData.ad,
-      tur: belgeFormData.tur,
-      dosya_url: urlData.publicUrl,
-      yukleme_tarihi: new Date().toISOString(),
-    });
-
-    if (dbError) {
-      console.error('Belge veritabanına kaydetme hatası:', dbError);
-      alert('Belge bilgileri kaydedilirken bir hata oluştu.');
-      return;
-    }
-
-    alert('Belge başarıyla yüklendi!');
-    setBelgeModalOpen(false);
-    setBelgeFormData({ ad: '', tur: 'sozlesme', dosya: null });
-    fetchOgretmenData(session!.ogretmen.id); // Verileri yenile
+    localStorage.removeItem('ogretmen');
+    router.push('/');
   };
-  
-  const formatBelgeTur = (tur: string) => {
-    switch (tur) {
-      case 'sozlesme': return 'Sözleşme'
-      case 'fesih_belgesi': return 'Fesih Belgesi'
-      case 'usta_ogretici_belgesi': 'Usta Öğretici Belgesi'
-      default: return tur.charAt(0).toUpperCase() + tur.slice(1);
+
+  const handleDekontSil = async (dekont: Dekont) => {
+    if (dekont.onay_durumu !== 'bekliyor') {
+      alert('Sadece "bekliyor" durumundaki dekontlar silinebilir.');
+      return;
     }
-  }
+
+    if (confirm(`'${dekont.ogrenci_ad}' adlı öğrencinin dekontunu kalıcı olarak silmek istediğinizden emin misiniz?`)) {
+      try {
+        setLoading(true);
+
+        // 1. Storage'dan dosyayı sil
+        if (dekont.dosya_url) {
+          const dosyaYolu = dekont.dosya_url.split('/dekontlar/').pop();
+          if (dosyaYolu) {
+            const { error: storageError } = await supabase.storage.from('dekontlar').remove([dosyaYolu]);
+            if (storageError && storageError.message !== 'The resource was not found') {
+              console.error('Dosya silinirken hata:', storageError);
+            }
+          }
+        }
+
+        // 2. Veritabanından dekontu sil
+        const { error: dbError } = await supabase.from('dekontlar').delete().eq('id', dekont.id);
+        if (dbError) throw dbError;
+
+        // 3. State'i güncelle
+        setDekontlar(prevDekontlar => prevDekontlar.filter(d => d.id !== dekont.id));
+        alert('Dekont başarıyla silindi.');
+
+      } catch (error: any) {
+        alert(`Hata: Dekont silinirken bir sorun oluştu. ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleOpenDekontUpload = async (ogrenci: Ogrenci, isletme: Isletme) => {
+    const stajId = await findStajId(ogrenci.id, isletme.id);
+    if (stajId) {
+      setSelectedStudent({ ...ogrenci, staj_id: stajId });
+      setSelectedIsletme(isletme);
+      setDekontUploadModalOpen(true);
+    }
+  };
+
+  const handleDekontSubmit = async (formData: DekontFormData) => {
+    if (!teacher || !selectedStudent || !selectedIsletme) {
+      alert("Gerekli bilgiler eksik, işlem iptal edildi.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      if (!formData.dosya) {
+        throw new Error("Dekont dosyası zorunludur.");
+      }
+
+      const file = formData.dosya;
+      const fileName = `${Date.now()}-${file.name.replace(/\s/g, '_')}`;
+      const filePath = `${selectedIsletme.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('dekontlar')
+        .upload(filePath, file);
+
+      if (uploadError) throw new Error(`Dosya yükleme hatası: ${uploadError.message}`);
+
+      const { data: urlData } = supabase.storage
+        .from('dekontlar')
+        .getPublicUrl(filePath);
+      
+      const dosyaUrl = urlData.publicUrl;
+
+      const { data, error } = await supabase
+        .from('dekontlar')
+        .insert({
+          staj_id: formData.staj_id,
+          isletme_id: selectedIsletme.id,
+          ogretmen_id: teacher.id,
+          tutar: formData.tutar,
+          ay: formData.ay.toString(),
+          yil: formData.yil,
+          aciklama: formData.aciklama || null,
+          dosya_url: dosyaUrl,
+          onay_durumu: 'bekliyor',
+          odeme_tarihi: new Date().toISOString().split('T')[0]
+        })
+        .select().single();
+
+      if (error) {
+        await supabase.storage.from('dekontlar').remove([filePath]);
+        throw new Error(`Veritabanı kayıt hatası: ${error.message}`);
+      }
+
+      const yeniDekont: Dekont = {
+        ...data,
+        id: data.id,
+        isletme_ad: selectedIsletme.ad,
+        ogrenci_ad: `${selectedStudent.ad} ${selectedStudent.soyad}`,
+        miktar: data.tutar,
+        yukleyen_kisi: `${teacher.ad} ${teacher.soyad} (Öğretmen)`
+      };
+
+      setDekontlar(prev => [yeniDekont, ...prev]);
+      setDekontUploadModalOpen(false);
+      alert('Dekont başarıyla yüklendi!');
+
+    } catch (error: any) {
+      alert(`Bir hata oluştu: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBelgeYukle = (isletme: Isletme) => {
+    setSelectedIsletme(isletme);
+    setBelgeUploadModalOpen(true);
+  };
+
+  const handleBelgeSubmit = async (formData: { isletmeId: string; dosyaAdi: string; dosya: File; belgeTuru: string; }) => {
+    setIsSubmitting(true);
+    try {
+      const fileExt = formData.dosya.name.split('.').pop();
+      const fileName = `${formData.belgeTuru}-${Date.now()}.${fileExt}`;
+      const filePath = `belgeler/${formData.isletmeId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('belgeler')
+        .upload(filePath, formData.dosya);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('belgeler')
+        .getPublicUrl(filePath);
+
+      const { error: dbError } = await supabase
+        .from('belgeler')
+        .insert({
+          isletme_id: formData.isletmeId,
+          dosya_adi: formData.dosyaAdi,
+          dosya_url: publicUrl,
+          belge_turu: formData.belgeTuru,
+        });
+
+      if (dbError) throw dbError;
+
+      alert('Belge başarıyla yüklendi.');
+      setBelgeUploadModalOpen(false);
+    } catch (error) {
+      console.error('Belge yükleme hatası:', error);
+      alert('Belge yüklenirken bir hata oluştu.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      setSelectedFile(files[0]);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Yükleniyor...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Loader className="animate-spin h-12 w-12 text-indigo-600" />
       </div>
-    )
+    );
   }
 
-  if (!session) {
-    return null
-  }
+  const getDurum = (durum: Dekont['onay_durumu']) => {
+    switch (durum) {
+      case 'onaylandi':
+        return { text: 'Onaylandı', icon: CheckCircle, color: 'text-green-700', bg: 'bg-green-100' };
+      case 'reddedildi':
+        return { text: 'Reddedildi', icon: XCircle, color: 'text-red-700', bg: 'bg-red-100' };
+      case 'bekliyor':
+      default:
+        return { text: 'Bekliyor', icon: Clock, color: 'text-yellow-700', bg: 'bg-yellow-100' };
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <header className="bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 shadow-xl rounded-2xl mx-6 mt-6 mb-8 overflow-hidden">
-        <div className="py-6 px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <User className="h-8 w-8 text-white" />
-              </div>
-              <div className="ml-4">
-                <h1 className="text-2xl font-bold text-white">
-                  Hoş Geldiniz, {session.ogretmen.ad} {session.ogretmen.soyad}
-                </h1>
-                <p className="text-sm text-blue-100 font-medium">Öğretmen Paneli</p>
-              </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center gap-4">
+              <GraduationCap className="h-8 w-8 text-indigo-600" />
+              <h1 className="text-xl font-bold text-gray-800">Öğretmen Paneli</h1>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center justify-center text-blue-100 hover:text-white bg-white/10 hover:bg-white/20 h-10 w-10 rounded-full transition-all duration-200"
-              title="Çıkış Yap"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="sr-only">Çıkış Yap</span>
-            </button>
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-600 hidden sm:block">
+                Hoş geldiniz, {teacher?.ad} {teacher?.soyad}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                title="Çıkış Yap"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center">
-              <div className="p-3 bg-white/20 rounded-full mr-4 backdrop-blur-sm">
-                <Building2 className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-blue-100">Toplam İşletme</p>
-                <p className="text-2xl font-bold text-white">{isletmeler.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center">
-              <div className="p-3 bg-white/20 rounded-full mr-4 backdrop-blur-sm">
-                <Clock className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-yellow-100">Bekleyen Dekontlar</p>
-                <p className="text-2xl font-bold text-white">
-                  {dekontlar.filter((d: any) => d.onay_durumu === 'bekliyor').length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center">
-              <div className="p-3 bg-white/20 rounded-full mr-4 backdrop-blur-sm">
-                <CheckCircle className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-green-100">Onaylanan Dekontlar</p>
-                <p className="text-2xl font-bold text-white">
-                  {dekontlar.filter((d: any) => d.onay_durumu === 'onaylandi').length}
-                </p>
-              </div>
-            </div>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 sm:px-0">
+          <div className="border-b border-gray-200 overflow-x-auto">
+            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('isletmeler')}
+                className={`${activeTab === 'isletmeler' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm flex items-center transition-colors min-w-[120px]`}
+              >
+                <Building2 className="h-5 w-5 mr-2 flex-shrink-0" />
+                <span>İşletmeler ({isletmeler.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('dekontlar')}
+                className={`${activeTab === 'dekontlar' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm flex items-center transition-colors min-w-[120px]`}
+              >
+                <Receipt className="h-5 w-5 mr-2 flex-shrink-0" />
+                <span>Dekontlar ({dekontlar.length})</span>
+              </button>
+            </nav>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">İşletmeler ve Dekontlar</h2>
-            
-            {isletmeler.length === 0 ? (
-              <div className="text-center py-12">
-                <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Henüz size atanmış bir işletme bulunmuyor.</p>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {isletmeler.map((isletme: any) => {
-                  const isletmeDekontlari = dekontlar.filter((d: any) => d.isletme_id === isletme.id);
-                  
-                  return (
-                    <div key={isletme.id}>
-                      <div className="flex items-center justify-between mb-4 pb-2 border-b">
-                        <h3 className="text-lg font-semibold text-gray-800">{isletme.ad}</h3>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedIsletme(isletme);
-                              setBelgeModalOpen(true);
-                            }}
-                            title="Belgeleri Görüntüle"
-                            className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors"
-                          >
-                            <FileText className="h-5 w-5" />
-                          </button>
-                          {isletme.telefon &&
-                            <a href={`tel:${isletme.telefon}`} className="text-gray-500 hover:text-blue-600 p-2 rounded-full hover:bg-gray-100">
-                              <Phone className="h-5 w-5" />
-                            </a>
-                          }
-                          {isletme.email &&
-                            <a href={`mailto:${isletme.email}`} className="text-gray-500 hover:text-blue-600 p-2 rounded-full hover:bg-gray-100">
-                              <Mail className="h-5 w-5" />
-                            </a>
-                          }
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        {isletmeDekontlari.length > 0 ? (
-                          isletmeDekontlari.map((dekont: any) => (
-                                <div
-                                  key={dekont.id}
-                                  className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors duration-200 cursor-pointer flex items-center justify-between"
-                                  onClick={() => {
-                                    setSelectedDekont(dekont)
-                                    setDekontDetailModalOpen(true)
-                                  }}
-                                >
-                                  <div>
-                                    <p className="font-semibold text-gray-800">
-                                      {dekont.stajlar?.ogrenciler?.ad} {dekont.stajlar?.ogrenciler?.soyad}
-                                    </p>
-                                    <p className="text-sm text-gray-500">
-                                      Ödeme Tarihi: {new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR')}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-4">
-                                    <p className="text-lg font-bold text-gray-900">
-                                      ₺{dekont.miktar?.toLocaleString('tr-TR')}
-                                    </p>
-                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                                      dekont.onay_durumu === 'onaylandi' ? 'bg-green-100 text-green-800' :
-                                      dekont.onay_durumu === 'reddedildi' ? 'bg-red-100 text-red-800' :
-                                      'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                      {dekont.onay_durumu === 'onaylandi' ? 'Onaylandı' :
-                                      dekont.onay_durumu === 'reddedildi' ? 'Reddedildi' : 'Bekliyor'}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))
-                          ) : (
-                            <p className="text-center text-gray-500 py-4">Bu işletmeye ait dekont bulunmamaktadır.</p>
-                          )
-                        }
-                      </div>
+        <div className="mt-6">
+          {activeTab === 'isletmeler' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {isletmeler.map(isletme => (
+                <div key={isletme.id} className="bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden">
+                  <div className="p-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <Building2 className="h-5 w-5 mr-3 text-indigo-500" />
+                        {isletme.ad}
+                      </h3>
+                      <button
+                        onClick={() => handleBelgeYukle(isletme)}
+                        title="Belge Yükle"
+                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <FileText className="h-5 w-5" />
+                      </button>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+                  </div>
+                  <div className="bg-gray-50/70 px-5 py-2">
+                     <h4 className="text-sm font-medium text-gray-600 mb-2">Staj Yapan Öğrenciler</h4>
+                  </div>
+                   <div className="p-5 pt-3">
+                     <div className="space-y-3">
+                      {isletme.ogrenciler.map(ogrenci => (
+                        <div key={ogrenci.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 border border-gray-100">
+                           <div className="flex items-center gap-3">
+                             <div className="flex-shrink-0">
+                               <User className="h-8 w-8 text-gray-400" />
+                             </div>
+                             <div>
+                               <p className="font-semibold text-gray-900">{ogrenci.ad} {ogrenci.soyad}</p>
+                               <p className="text-xs text-gray-500">{ogrenci.alan} - {ogrenci.sinif} / {ogrenci.no}</p>
+                             </div>
+                           </div>
+                           <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenDekontUpload(ogrenci, isletme); }}
+                            title="Dekont Yükle"
+                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            <Upload className="h-5 w-5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'dekontlar' && (
+            <>
+              {dekontlar.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <Receipt className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">Henüz dekont bulunmuyor</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    İşletmeler sekmesinden öğrenci seçerek dekont yükleyebilirsiniz.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {dekontlar.map((dekont) => (
+                    <DekontCard
+                      key={dekont.id}
+                      ogrenciAd={dekont.ogrenci_ad}
+                      donem={`${dekont.ay}/${dekont.yil}`}
+                      dosyaUrl={dekont.dosya_url}
+                      onIndir={() => window.open(dekont.dosya_url, '_blank')}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </main>
 
-      <footer className="bg-white mt-12 py-4 text-center text-sm text-gray-500">
-        © 2025 Hüsniye Özdilek MTAL - Koordinatörlük Yönetim Sistemi. Tüm Hakları Saklıdır.
+      <footer className="bg-white border-t mt-auto py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-sm text-gray-500">
+            © {new Date().getFullYear()} Staj Takip Sistemi
+          </p>
+        </div>
       </footer>
 
-      {selectedDekont && (
-        <Modal
-          isOpen={dekontDetailModalOpen}
-          onClose={() => setDekontDetailModalOpen(false)}
-          title="Dekont Detayları"
+      {/* Dekont Yükleme Modal'ı */}
+      {isDekontUploadModalOpen && selectedStudent && selectedIsletme && selectedStudent.staj_id && (
+        <Modal 
+          isOpen={isDekontUploadModalOpen} 
+          onClose={() => setDekontUploadModalOpen(false)}
+          title={`Dekont Yükle: ${selectedStudent.ad} ${selectedStudent.soyad}`}
         >
-          {selectedDekont && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Öğrenci Bilgileri</h4>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <User className="h-5 w-5 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-900">
-                        {selectedDekont.stajlar?.ogrenciler?.ad} {selectedDekont.stajlar?.ogrenciler?.soyad}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Ödeme Bilgileri</h4>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">Miktar:</span>
-                        <span className="text-sm font-medium text-gray-900">₺{selectedDekont.miktar?.toLocaleString('tr-TR')}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">Ödeme Tarihi:</span>
-                        <span className="text-sm font-medium text-gray-900">
-                          {new Date(selectedDekont.odeme_tarihi).toLocaleDateString('tr-TR')}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">Son Ödeme Tarihi:</span>
-                        <span className="text-sm font-medium text-gray-900">
-                          {new Date(selectedDekont.odeme_son_tarihi).toLocaleDateString('tr-TR')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Onay Durumu</h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center">
-                    {selectedDekont.onay_durumu === 'onaylandi' ? (
-                      <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    ) : selectedDekont.onay_durumu === 'reddedildi' ? (
-                      <XCircle className="h-5 w-5 text-red-500 mr-2" />
-                    ) : (
-                      <Clock className="h-5 w-5 text-yellow-500 mr-2" />
-                    )}
-                    <span className="text-sm font-medium">
-                      {selectedDekont.onay_durumu === 'onaylandi' ? 'Onaylandı' :
-                       selectedDekont.onay_durumu === 'reddedildi' ? 'Reddedildi' : 'Bekliyor'}
-                    </span>
-                  </div>
-                  {selectedDekont.onay_durumu === 'reddedildi' && selectedDekont.red_nedeni && (
-                    <div className="mt-2">
-                      <span className="text-sm text-gray-500">Red Nedeni:</span>
-                      <p className="text-sm font-medium text-red-600 mt-1">{selectedDekont.red_nedeni}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          <DekontUploadForm
+            stajId={selectedStudent.staj_id}
+            onSubmit={handleDekontSubmit}
+            isLoading={isSubmitting}
+          />
         </Modal>
       )}
 
-      {selectedIsletme && (
-        <Modal
-          isOpen={belgeModalOpen}
-          onClose={() => {
-            setBelgeModalOpen(false);
-            setSelectedIsletme(null);
-          }}
-          title={`${selectedIsletme.ad} - Belgeler`}
-        >
-          <div className="space-y-4">
+      {/* Belge Yükleme Modalı */}
+      <BelgeUploadModal
+        isOpen={isBelgeUploadModalOpen}
+        onClose={() => setBelgeUploadModalOpen(false)}
+        isletmeler={isletmeler}
+        onSubmit={handleBelgeSubmit}
+        isLoading={isSubmitting}
+        selectedIsletmeId={selectedIsletme?.id}
+      />
+    </div>
+  );
+};
+
+// Belge Yükleme için ayrı bir modal bileşeni
+const BelgeUploadModal = ({
+  isOpen,
+  onClose,
+  isletmeler,
+  onSubmit,
+  isLoading,
+  selectedIsletmeId = '',
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  isletmeler: Isletme[];
+  onSubmit: (formData: { isletmeId: string; dosyaAdi: string; dosya: File; belgeTuru: string; }) => Promise<void>;
+  isLoading: boolean;
+  selectedIsletmeId?: string;
+}) => {
+  const [selectedIsletme, setSelectedIsletme] = useState<string>(selectedIsletmeId);
+  const [belgeTuru, setBelgeTuru] = useState('');
+  const [digerBelgeTuru, setDigerBelgeTuru] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [belgeler, setBelgeler] = useState<any[]>([]);
+  const [belgelerLoading, setBelgelerLoading] = useState(false);
+
+  const belgeTurleri = [
+    'Sözleşme',
+    'Fesih Belgesi',
+    'Usta Öğreticilik Belgesi',
+    'Diğer'
+  ];
+
+  useEffect(() => {
+    setSelectedIsletme(selectedIsletmeId);
+    if (selectedIsletmeId) {
+      fetchBelgeler(selectedIsletmeId);
+    }
+  }, [selectedIsletmeId]);
+
+  const fetchBelgeler = async (isletmeId: string) => {
+    setBelgelerLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('belgeler')
+        .select('*')
+        .eq('isletme_id', isletmeId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBelgeler(data || []);
+    } catch (error) {
+      console.error('Belgeler getirilemedi:', error);
+    } finally {
+      setBelgelerLoading(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      setSelectedFile(files[0]);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIsletme || !belgeTuru || !selectedFile) {
+      setError('Lütfen tüm alanları doldurun.');
+      return;
+    }
+
+    if (belgeTuru === 'Diğer' && !digerBelgeTuru) {
+      setError('Lütfen belge türünü belirtin.');
+      return;
+    }
+
+    const dosyaAdi = belgeTuru === 'Diğer' ? digerBelgeTuru : belgeTuru;
+    setError('');
+    await onSubmit({ isletmeId: selectedIsletme, dosyaAdi, dosya: selectedFile, belgeTuru });
+    setShowUploadForm(false);
+    if (selectedIsletme) {
+      fetchBelgeler(selectedIsletme);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="İşletme Belgeleri">
+      <div className="space-y-6">
+        {!showUploadForm ? (
+          <>
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-800">Yüklenen Belgeler</h3>
-            </div>
-            
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-              {belgeler.filter(b => b.isletme_id === selectedIsletme.id).length > 0 ? (
-                belgeler.filter(b => b.isletme_id === selectedIsletme.id).map(belge => (
-                  <div key={belge.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between hover:bg-gray-100">
-                    <div>
-                      <p className="font-semibold text-gray-700">{belge.ad}</p>
-                      <p className="text-sm text-gray-500">{formatBelgeTur(belge.tur)}</p>
-                    </div>
-                    <a href={belge.dosya_url} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-full">
-                      <Download className="h-5 w-5" />
-                    </a>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-4">Henüz belge yüklenmemiş.</p>
-              )}
+              <h3 className="text-lg font-medium text-gray-900">
+                {isletmeler.find(i => i.id === selectedIsletme)?.ad} - Belgeler
+              </h3>
+              <button
+                onClick={() => setShowUploadForm(true)}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Yeni Belge Ekle
+              </button>
             </div>
 
-            <div className="border-t pt-4 mt-4">
-              <h3 className="text-lg font-medium text-gray-800 mb-2">Yeni Belge Yükle</h3>
-              <div className="space-y-3">
+            {belgelerLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+              </div>
+            ) : belgeler.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-600">Bu işletme için henüz belge yüklenmemiş</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {belgeler.map((belge) => (
+                  <div key={belge.id} className="flex items-center justify-between p-4 bg-white border rounded-lg shadow-sm">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="h-6 w-6 text-gray-400" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{belge.dosya_adi}</p>
+                        <p className="text-xs text-gray-500">{new Date(belge.created_at).toLocaleDateString('tr-TR')}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => window.open(belge.dosya_url, '_blank')}
+                      className="p-2 text-gray-400 hover:text-indigo-600 rounded-full hover:bg-gray-100"
+                    >
+                      <Download className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="belgeTuru" className="block text-sm font-medium text-gray-700">
+                Belge Türü
+              </label>
+              <select
+                id="belgeTuru"
+                value={belgeTuru}
+                onChange={(e) => setBelgeTuru(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="" disabled>-- Belge Türü Seçin --</option>
+                {belgeTurleri.map(tur => (
+                  <option key={tur} value={tur}>{tur}</option>
+                ))}
+              </select>
+            </div>
+
+            {belgeTuru === 'Diğer' && (
+              <div>
+                <label htmlFor="digerBelgeTuru" className="block text-sm font-medium text-gray-700">
+                  Belge Türünü Belirtin
+                </label>
                 <input
                   type="text"
-                  placeholder="Belge Adı"
-                  value={belgeFormData.ad}
-                  onChange={(e) => setBelgeFormData({ ...belgeFormData, ad: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  id="digerBelgeTuru"
+                  value={digerBelgeTuru}
+                  onChange={(e) => setDigerBelgeTuru(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Örn: Sigorta Belgesi"
                 />
-                <select
-                  value={belgeFormData.tur}
-                  onChange={(e) => setBelgeFormData({ ...belgeFormData, tur: e.target.value })}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="sozlesme">Sözleşme</option>
-                  <option value="fesih_belgesi">Fesih Belgesi</option>
-                  <option value="usta_ogretici_belgesi">Usta Öğretici Belgesi</option>
-                  <option value="diger">Diğer</option>
-                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Dosya
+              </label>
+              <div
+                className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
                 <input
                   type="file"
-                  onChange={(e) => setBelgeFormData({ ...belgeFormData, dosya: e.target.files ? e.target.files[0] : null })}
-                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  id="dosya"
+                  onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 />
-                 <button
-                  onClick={handleBelgeUpload}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Upload className="h-5 w-5 mr-2" /> Yükle
-                </button>
+                <label htmlFor="dosya" className="cursor-pointer">
+                  {selectedFile ? (
+                    <>
+                      <FileText className="h-10 w-10 text-indigo-500 mx-auto mb-3" />
+                      <p className="text-sm text-gray-600">{selectedFile.name}</p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                      <p className="text-sm text-gray-600">
+                        Dosya seçmek için tıklayın veya sürükleyip bırakın
+                      </p>
+                    </>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    PDF, DOC, DOCX, JPG, PNG formatları desteklenir
+                  </p>
+                </label>
               </div>
             </div>
-          </div>
-        </Modal>
-      )}
-    </div>
-  )
-} 
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowUploadForm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Geri
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Yükleniyor...
+                  </>
+                ) : (
+                  'Yükle'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
+export default TeacherPanel; 

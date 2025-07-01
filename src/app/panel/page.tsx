@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Users, FileText, LogOut, User, Upload, Plus, Download, Eye, Search, Filter, Receipt, Loader, GraduationCap } from 'lucide-react'
+import { Building2, Users, FileText, LogOut, User, Upload, Plus, Download, Eye, Search, Filter, Receipt, Loader, GraduationCap, Calendar, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEgitimYili } from '@/lib/context/EgitimYiliContext'
 import Modal from '@/components/ui/Modal'
@@ -32,12 +32,10 @@ interface Dekont {
   id: number
   ogrenci_adi: string
   miktar: number | null
-  odeme_tarihi: string
+  odeme_tarihi?: string
   onay_durumu: 'bekliyor' | 'onaylandi' | 'reddedildi'
   aciklama?: string
   dosya_url?: string
-  tarih: string
-  tutar: number | null
   ay: string
   yil: number | string
   stajlar?: {
@@ -98,10 +96,10 @@ export default function PanelPage() {
 
   // Dekont form verileri
   const [dekontFormData, setDekontFormData] = useState({
-    tarih: '',
-    ay: '',
+    ay: new Date().getMonth() + 1,
+    yil: new Date().getFullYear(),
     aciklama: '',
-    tutar: '',
+    miktar: '',
     dosya: null as File | null
   })
 
@@ -351,12 +349,12 @@ export default function PanelPage() {
   }
 
   const handleDekontEkle = async () => {
-    if (!selectedOgrenci || !dekontFormData.tarih || !dekontFormData.ay) {
-      alert('Dekont tarihi ve ayı zorunludur!')
+    if (!selectedOgrenci || !dekontFormData.ay || !dekontFormData.yil) {
+      alert('Dekont dönemi (ay ve yıl) zorunludur!')
       return
     }
 
-    // Tutar alanı opsiyonel
+    // Miktar alanı opsiyonel
 
     try {
       let dosyaUrl = null
@@ -367,44 +365,37 @@ export default function PanelPage() {
         dosyaUrl = `/uploads/dekontlar/${Date.now()}_${dekontFormData.dosya.name}`
       }
 
+      // Ay adını al
+      const aylar = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
+      const ayAdi = aylar[dekontFormData.ay - 1]
+
       // Dekontlar tablosundaki mevcut kolonları kullan
-      const insertData: any = {
-        staj_id: selectedOgrenci.staj_id,
-        odeme_tarihi: dekontFormData.tarih,
-        miktar: dekontFormData.tutar && dekontFormData.tutar.trim() !== '' ? parseFloat(dekontFormData.tutar) : null,
-        onay_durumu: 'beklemede',
-        ay: dekontFormData.ay
-      }
-
-      // Dosya kolonu varsa ekle - şimdilik kaldırıyoruz çünkü kolon adı belirsiz
-      // dekont_dosyas kolonu bulunamıyor hatası alıyoruz
-      if (dosyaUrl) {
-        // Olası kolon isimleri: dosya_url, file_url, document_url, dekont_dosyas
-        // insertData.dosya_url = dosyaUrl  // Gerçek kolon adı bulunduğunda açılacak
-      }
-
-      // Eğer aciklama alanı varsa ekle (tabloda göremiyoruz ama denemeye değer)
-      if (dekontFormData.aciklama) {
-        insertData.aciklama = dekontFormData.aciklama
-      }
-
-      const { error } = await supabase
+      const { data: dekontData, error } = await supabase
         .from('dekontlar')
-        .insert(insertData)
+        .insert({
+          staj_id: selectedOgrenci!.staj_id,
+          ogrenci_id: selectedOgrenci!.id,
+          isletme_id: isletme!.id,
+          odeme_tarihi: new Date().toISOString().split('T')[0],
+          ay: `${ayAdi} ${dekontFormData.yil}`,
+          aciklama: dekontFormData.aciklama || null,
+          miktar: dekontFormData.miktar ? parseFloat(dekontFormData.miktar) : null,
+          dosya_url: dosyaUrl,
+          onay_durumu: 'bekliyor'
+        })
 
       if (error) {
         console.error('Dekont ekleme hatası:', error)
         console.error('Hata detayı:', error.message)
         console.error('Gönderilen veri:', {
-          staj_id: selectedOgrenci.staj_id,
-          ogrenci_id: selectedOgrenci.id,
+          staj_id: selectedOgrenci!.staj_id,
+          ogrenci_id: selectedOgrenci!.id,
           isletme_id: isletme!.id,
-          tarih: dekontFormData.tarih,
           ay: dekontFormData.ay,
           aciklama: dekontFormData.aciklama || null,
-          tutar: dekontFormData.tutar ? parseFloat(dekontFormData.tutar) : null,
+          miktar: dekontFormData.miktar ? parseFloat(dekontFormData.miktar) : null,
           dosya_url: dosyaUrl,
-          onay_durumu: 'beklemede'
+          onay_durumu: 'bekliyor'
         })
         alert(`Dekont eklenirken hata oluştu: ${error.message}`)
         return
@@ -413,7 +404,14 @@ export default function PanelPage() {
       alert('Dekont başarıyla eklendi!')
       setDekontModalOpen(false)
       setSelectedOgrenci(null)
-      setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
+      setDekontFormData({ 
+        ay: new Date().getMonth() + 1, 
+        yil: new Date().getFullYear(), 
+        aciklama: '', 
+        miktar: '', 
+        dosya: null 
+      })
+      setActiveTab('dekontlar') // Dekont listesi sekmesine geç
       if(isletme) fetchData(isletme.id) // Veriyi yeniden yükle
     } catch (error) {
       console.error('Dekont ekleme hatası:', error)
@@ -436,12 +434,9 @@ export default function PanelPage() {
           id: dekont.id,
           ogrenci_adi: `${ogrenci.ad} ${ogrenci.soyad}`,
           miktar: dekont.miktar,
-          odeme_tarihi: dekont.odeme_tarihi,
           onay_durumu: dekont.onay_durumu,
           aciklama: '', // Tabloda açıklama alanı yok
           dosya_url: dekont.dekont_dosyas || dekont.dosya_url || dekont.file_url || null, // Farklı dosya kolun adlarını dene
-          tarih: dekont.odeme_tarihi,
-          tutar: dekont.miktar,
           ay: dekont.ay || '',
           yil: dekont.yil || ''
         }))
@@ -507,443 +502,332 @@ export default function PanelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col">
-      <div className="flex-grow">
-        <header className="bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 shadow-xl rounded-2xl mx-4 sm:mx-6 mt-6 mb-8 overflow-hidden">
-          <div className="py-6 px-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <Building2 className="h-8 w-8 text-white" />
+    <div className="min-h-screen flex flex-col pb-16">
+      {/* Header */}
+      <div className="relative bg-gradient-to-b from-indigo-600 to-indigo-800 pb-32">
+        {/* Pattern Background */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundSize: '30px 30px'
+          }} />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto pt-6 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-white rounded-2xl transform rotate-6 scale-105 opacity-20" />
+                  <div className="relative p-3 bg-white bg-opacity-20 backdrop-blur-lg rounded-2xl">
+                    <Building2 className="h-8 w-8 text-white" />
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <h1 className="text-2xl font-bold text-white">
-                    {isletme.ad}
-                  </h1>
-                  <p className="text-sm text-blue-100 font-medium">İşletme Paneli</p>
-                </div>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center justify-center text-blue-100 hover:text-white bg-white/10 hover:bg-white/20 h-10 w-10 rounded-full transition-all duration-200"
-                title="Çıkış Yap"
-              >
-                <LogOut className="h-5 w-5" />
-                <span className="sr-only">Çıkış Yap</span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200/80">
-            <div className="p-4 sm:p-6">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-2 sm:space-x-4" aria-label="Tabs">
-                  <button
-                    onClick={() => setActiveTab('ogrenciler')}
-                    className={`${
-                      activeTab === 'ogrenciler'
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 sm:px-2 border-b-2 font-medium text-sm flex items-center transition-colors`}
-                  >
-                    <Users className="mr-2 h-5 w-5" />
-                    Öğrenciler
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('dekontlar')}
-                    className={`${
-                      activeTab === 'dekontlar'
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 sm:px-2 border-b-2 font-medium text-sm flex items-center transition-colors`}
-                  >
-                    <Receipt className="mr-2 h-5 w-5" />
-                    Dekontlar
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('belgeler')}
-                    className={`${
-                      activeTab === 'belgeler'
-                        ? 'border-indigo-500 text-indigo-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 sm:px-2 border-b-2 font-medium text-sm flex items-center transition-colors`}
-                  >
-                    <FileText className="mr-2 h-5 w-5" />
-                    Belgeler
-                  </button>
-                </nav>
-              </div>
-
-              <div className="mt-6">
-                {activeTab === 'ogrenciler' && (
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                      Aktif Öğrenciler ({ogrenciler.length})
-                    </h2>
-                    <div className="space-y-4">
-                      {ogrenciler.length > 0 ? (
-                        ogrenciler.map(ogrenci => (
-                          <div key={ogrenci.id} className="bg-gray-50/80 rounded-xl p-4 border border-gray-200/90 hover:bg-gray-100 transition-all duration-200">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-                              <div className="flex items-center mb-3 sm:mb-0">
-                                 <div className="p-3 bg-indigo-100 rounded-full mr-4">
-                                  <User className="h-5 w-5 text-indigo-600" />
-                                </div>
-                                <div>
-                                  <p className="font-bold text-gray-800">{ogrenci.ad} {ogrenci.soyad}</p>
-                                  <p className="text-sm text-gray-500">{ogrenci.alan}</p>
-                                </div>
-                              </div>
-                              <div className="text-sm text-gray-600 text-left sm:text-right mb-4 sm:mb-0 w-full sm:w-auto">
-                                  <p><span className="font-medium">Sınıf:</span> {ogrenci.sinif} - <span className="font-medium">No:</span> {ogrenci.no}</p>
-                                  <p><span className="font-medium">Staj:</span> {new Date(ogrenci.baslangic_tarihi).toLocaleDateString('tr-TR')} - {new Date(ogrenci.bitis_tarihi).toLocaleDateString('tr-TR')}</p>
-                                  <p className="flex items-center justify-start sm:justify-end mt-1">
-                                    <GraduationCap className="h-4 w-4 mr-1.5 text-gray-400" />
-                                    <span className="font-medium">Koor. Öğr:</span> {ogrenci.ogretmen_ad} {ogrenci.ogretmen_soyad}
-                                  </p>
-                              </div>
-                              <div className="flex w-full sm:w-auto justify-end">
-                                <button
-                                  onClick={() => {
-                                    setSelectedOgrenci(ogrenci)
-                                    setDekontModalOpen(true)
-                                  }}
-                                  title="Dekont Yükle"
-                                  className="w-10 h-10 flex items-center justify-center bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                                >
-                                  <Upload className="h-5 w-5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-10 bg-gray-50 rounded-lg">
-                          <Users className="mx-auto h-10 w-10 text-gray-400" />
-                          <p className="mt-4 text-gray-600">Bu işletmede aktif staj yapan öğrenci bulunmamaktadır.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'dekontlar' && (
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                      Tüm Dekontlar ({dekontlar.length})
-                    </h2>
-                    <div className="space-y-4">
-                      {dekontlar.length > 0 ? (
-                        dekontlar.map((dekont: Dekont) => (
-                          <div
-                            key={dekont.id}
-                            className="bg-gray-50/80 rounded-xl p-4 border border-gray-200/90 hover:bg-gray-100 transition-all duration-200 cursor-pointer"
-                            onClick={() => {
-                              setSelectedDekont(dekont)
-                              handleDekontDetay(dekont)
-                            }}
-                          >
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-                              <div className="flex items-center mb-3 sm:mb-0">
-                                <div className="p-3 bg-blue-100 rounded-full mr-4">
-                                  <User className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div>
-                                  <p className="font-bold text-gray-800">
-                                    {dekont.stajlar?.ogrenciler?.ad || 'Bilinmeyen Öğrenci'} {dekont.stajlar?.ogrenciler?.soyad || ''}
-                                  </p>
-                                  <p className="text-sm text-gray-500">
-                                    {dekont.ay} {dekont.yil}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-4 w-full sm:w-auto mt-2 sm:mt-0">
-                                <p className="text-lg font-bold text-gray-900 flex-grow sm:flex-grow-0 text-left">
-                                  ₺{dekont.tutar?.toLocaleString('tr-TR')}
-                                </p>
-                                <span
-                                  className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium w-24 text-center ${
-                                    dekont.onay_durumu === 'onaylandi'
-                                      ? 'bg-green-100 text-green-800'
-                                      : dekont.onay_durumu === 'reddedildi'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                  }`}
-                                >
-                                  {getOnayDurumuText(dekont.onay_durumu)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-10 bg-gray-50 rounded-lg">
-                          <Receipt className="mx-auto h-10 w-10 text-gray-400" />
-                          <p className="mt-4 text-gray-600">Bu işletmeye ait hiç dekont bulunmamaktadır.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'belgeler' && (
-                  <div>
-                    <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-                      <h2 className="text-xl font-semibold text-gray-800">
-                        İşletme Belgeleri ({filteredBelgeler.length})
-                      </h2>
-                      <button
-                        onClick={() => setBelgeModalOpen(true)}
-                        className="w-full sm:w-auto flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                      >
-                        <Plus className="h-4 w-4 mr-2" /> Yeni Belge Ekle
-                      </button>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                       <div className="relative flex-grow">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Belgelerde ara..."
-                            value={belgeSearchTerm}
-                            onChange={(e) => setBelgeSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                          />
-                       </div>
-                        <div className="relative">
-                           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <select
-                              value={belgeTurFilter}
-                              onChange={(e) => setBelgeTurFilter(e.target.value)}
-                              className="w-full sm:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white"
-                            >
-                              <option value="all">Tüm Türler</option>
-                              <option value="sozlesme">Sözleşme</option>
-                              <option value="fesih_belgesi">Fesih Belgesi</option>
-                              <option value="usta_ogretici_belgesi">Usta Öğretici Belgesi</option>
-                              <option value="diger">Diğer</option>
-                          </select>
-                        </div>
-                    </div>
-                    <div className="space-y-3">
-                      {filteredBelgeler.length > 0 ? (
-                        filteredBelgeler.map(belge => (
-                          <div key={belge.id} className="bg-gray-50/80 rounded-xl p-4 border border-gray-200/90 hover:bg-gray-100 transition-all duration-200 flex items-center justify-between">
-                             <div className="flex items-center">
-                                <div className="p-3 bg-gray-200 rounded-full mr-4">
-                                  <FileText className="h-5 w-5 text-gray-600" />
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-gray-800">{belge.ad}</p>
-                                  <p className="text-sm text-gray-500">
-                                    {formatBelgeTur(belge.tur)} - {new Date(belge.yukleme_tarihi).toLocaleDateString('tr-TR')}
-                                  </p>
-                                </div>
-                              </div>
-                            <div className="flex items-center gap-2">
-                               <button
-                                  onClick={() => handleBelgeView(belge)}
-                                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-200 rounded-full transition-colors"
-                                  title="Görüntüle/İndir"
-                                >
-                                  <Download className="h-5 w-5" />
-                                </button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-10 bg-gray-50 rounded-lg">
-                          <FileText className="mx-auto h-10 w-10 text-gray-400" />
-                          <p className="mt-4 text-gray-600">Filtrelerle eşleşen belge bulunamadı.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="ml-6">
+                <h1 className="text-2xl font-bold text-white">
+                  {isletme.ad}
+                </h1>
+                <p className="text-indigo-200 text-sm">İşletme Paneli</p>
               </div>
             </div>
-          </div>
-        </main>
-      </div>
-
-      {/* Belge Ekleme Modalı */}
-      <Modal isOpen={belgeModalOpen} onClose={() => setBelgeModalOpen(false)} title="Yeni Belge Ekle">
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Belge Adı
-            </label>
-            <input
-              type="text"
-              value={belgeFormData.ad}
-              onChange={(e) => setBelgeFormData({...belgeFormData, ad: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Belge adını giriniz"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Belge Türü
-            </label>
-            <select
-              value={belgeFormData.tur}
-              onChange={(e) => setBelgeFormData({...belgeFormData, tur: e.target.value, customTur: ''})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="sozlesme">Sözleşme</option>
-              <option value="fesih_belgesi">Fesih Belgesi</option>
-              <option value="usta_ogretici_belgesi">Usta Öğretici Belgesi</option>
-              <option value="other">Diğer (Manuel Giriş)</option>
-            </select>
-          </div>
-
-          {belgeFormData.tur === 'other' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Özel Belge Türü
-              </label>
-              <input
-                type="text"
-                value={belgeFormData.customTur}
-                onChange={(e) => setBelgeFormData({...belgeFormData, customTur: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Belge türünü yazınız"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Dosya Seçin <span className="text-red-500">*</span>
-            </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors">
-              <input
-                type="file"
-                id="belge-dosya"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={(e) => setBelgeFormData({...belgeFormData, dosya: e.target.files?.[0] || null})}
-                className="hidden"
-                required
-              />
-              <label htmlFor="belge-dosya" className="cursor-pointer">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">
-                  {belgeFormData.dosya ? belgeFormData.dosya.name : 'Dosya seçmek için tıklayın'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  PDF, DOC, DOCX, JPG, PNG formatları desteklenir
-                </p>
-              </label>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
             <button
-              onClick={() => setBelgeModalOpen(false)}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              onClick={handleLogout}
+              className="flex items-center justify-center p-2 rounded-xl bg-white bg-opacity-20 backdrop-blur-lg hover:bg-opacity-30 transition-all duration-200"
+              title="Çıkış Yap"
             >
-              İptal
+              <LogOut className="h-5 w-5 text-white" />
+              <span className="sr-only">Çıkış Yap</span>
             </button>
-            <button
-              onClick={handleBelgeEkle}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200"
-            >
-              Belge Ekle
-            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="mt-8">
+            <nav className="-mb-px flex space-x-4" aria-label="Tabs">
+              {[
+                { id: 'ogrenciler', icon: Users, label: 'Öğrenciler' },
+                { id: 'dekontlar', icon: Receipt, label: 'Dekontlar' },
+                { id: 'belgeler', icon: FileText, label: 'Belgeler' }
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as ActiveTab)}
+                    className={`
+                      group relative min-w-0 flex-1 overflow-hidden py-3 px-6 rounded-t-xl text-sm font-medium text-center hover:bg-white hover:bg-opacity-10 transition-all duration-200
+                      ${isActive 
+                        ? 'bg-white text-indigo-700' 
+                        : 'text-indigo-100 hover:text-white'}
+                    `}
+                  >
+                    <div className="flex items-center justify-center">
+                      <Icon className={`h-5 w-5 ${isActive ? 'text-indigo-700' : 'text-indigo-300 group-hover:text-white'} mr-2`} />
+                      {tab.label}
+                    </div>
+                    {isActive && (
+                      <span className="absolute inset-x-0 bottom-0 h-0.5 bg-indigo-700" />
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
         </div>
-      </Modal>
-      
-      {/* Belge Görüntüleme Modalı */}
-      <Modal isOpen={belgeViewModal} onClose={() => setBelgeViewModal(false)} title={selectedBelge?.ad || 'Belge Detayı'}>
-         {selectedBelge && (
-          <div>
-            <p><strong>Tür:</strong> {formatBelgeTur(selectedBelge.tur)}</p>
-            <p><strong>Yükleme Tarihi:</strong> {new Date(selectedBelge.yukleme_tarihi).toLocaleDateString('tr-TR')}</p>
-            
-            {selectedBelge.dosya_url ? (
-              <div className="mt-4">
-                <a 
-                  href={selectedBelge.dosya_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <Eye className="mr-2 h-4 w-4" /> Belgeyi Görüntüle
-                </a>
-                 <a 
-                  href={selectedBelge.dosya_url} 
-                  download 
-                  className="ml-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-                >
-                  <Download className="mr-2 h-4 w-4" /> İndir
-                </a>
+      </div>
+
+      {/* Main Content */}
+      <main className="relative -mt-32 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-black ring-opacity-5 p-6 divide-y divide-gray-200">
+            {activeTab === 'ogrenciler' && (
+              <div className="space-y-6">
+                {ogrenciler.map((ogrenci) => (
+                  <div key={ogrenci.id} className="pt-6 first:pt-0">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center">
+                        <div className="h-12 w-12 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl flex items-center justify-center">
+                          <User className="h-6 w-6 text-indigo-600" />
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="text-lg font-medium text-gray-900">
+                            {ogrenci.ad} {ogrenci.soyad}
+                          </h3>
+                          <p className="text-sm text-gray-500">{ogrenci.alan}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedOgrenci(ogrenci)
+                          setDekontModalOpen(true)
+                        }}
+                        className="flex items-center px-3 py-1.5 text-sm text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                      >
+                        <Upload className="h-4 w-4 mr-1.5" />
+                        Dekont Yükle
+                      </button>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <GraduationCap className="h-4 w-4 text-gray-400 mr-2" />
+                        {ogrenci.sinif} - {ogrenci.no}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                        {new Date(ogrenci.baslangic_tarihi).toLocaleDateString('tr-TR')} - {new Date(ogrenci.bitis_tarihi).toLocaleDateString('tr-TR')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <p className="mt-4 text-red-500">Bu belge için görüntülenecek bir dosya bulunamadı.</p>
+            )}
+
+            {activeTab === 'dekontlar' && (
+              <div className="space-y-6">
+                {dekontlar.length > 0 ? (
+                  dekontlar.map((dekont) => (
+                    <div key={dekont.id} className="pt-6 first:pt-0">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">
+                            {dekont.stajlar?.ogrenciler?.ad} {dekont.stajlar?.ogrenciler?.soyad}
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {dekont.ay} {dekont.yil}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {dekont.dosya_url && (
+                            <button
+                              onClick={() => window.open(dekont.dosya_url, '_blank')}
+                              className="flex items-center px-3 py-1.5 text-sm text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                            >
+                              <Download className="h-4 w-4 mr-1.5" />
+                              İndir
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-4 grid grid-cols-3 gap-4">
+                        <div className="flex items-center text-sm">
+                          <span className="text-gray-500">Ödeme Tarihi:</span>
+                          <span className="ml-2 font-medium text-gray-900">
+                            {dekont.odeme_tarihi ? new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric'
+                            }) : '-'}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <span className="text-gray-500">Tutar:</span>
+                          <span className="ml-2 font-medium text-gray-900">
+                            {dekont.miktar?.toLocaleString('tr-TR')} ₺
+                          </span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <span className="text-gray-500">Durum:</span>
+                          <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            dekont.onay_durumu === 'onaylandi' 
+                              ? 'bg-green-100 text-green-800'
+                              : dekont.onay_durumu === 'bekliyor'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {dekont.onay_durumu === 'onaylandi' ? 'Onaylandı'
+                              : dekont.onay_durumu === 'bekliyor' ? 'Bekliyor'
+                              : 'Reddedildi'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <Receipt className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">Henüz Dekont Yok</h3>
+                    <p className="mt-2 text-sm text-gray-500">Bu işletmeye ait hiç dekont bulunmamaktadır.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'belgeler' && (
+              <div>
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                  <h2 className="text-lg font-medium text-gray-900">
+                    İşletme Belgeleri ({filteredBelgeler.length})
+                  </h2>
+                  <button
+                    onClick={() => setBelgeModalOpen(true)}
+                    className="flex items-center px-4 py-2 text-sm text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-colors shadow-sm"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Yeni Belge Ekle
+                  </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Belgelerde ara..."
+                      value={belgeSearchTerm}
+                      onChange={(e) => setBelgeSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="relative w-full sm:w-48">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <select
+                      value={belgeTurFilter}
+                      onChange={(e) => setBelgeTurFilter(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none"
+                    >
+                      <option value="all">Tüm Türler</option>
+                      <option value="sozlesme">Sözleşme</option>
+                      <option value="fesih_belgesi">Fesih Belgesi</option>
+                      <option value="usta_ogretici_belgesi">Usta Öğretici Belgesi</option>
+                      <option value="diger">Diğer</option>
+                    </select>
+                  </div>
+                </div>
+
+                {filteredBelgeler.length > 0 ? (
+                  <div className="space-y-6">
+                    {filteredBelgeler.map((belge) => (
+                      <div key={belge.id} className="pt-6 first:pt-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center">
+                            <div className="h-12 w-12 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl flex items-center justify-center">
+                              <FileText className="h-6 w-6 text-indigo-600" />
+                            </div>
+                            <div className="ml-4">
+                              <h3 className="text-lg font-medium text-gray-900">
+                                {belge.ad}
+                              </h3>
+                              <p className="text-sm text-gray-500">{formatBelgeTur(belge.tur)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {belge.dosya_url && (
+                              <button
+                                onClick={() => window.open(belge.dosya_url, '_blank')}
+                                className="flex items-center px-3 py-1.5 text-sm text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                              >
+                                <Download className="h-4 w-4 mr-1.5" />
+                                İndir
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-500">
+                            Yüklenme Tarihi: {new Date(belge.yukleme_tarihi).toLocaleDateString('tr-TR')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">Henüz Belge Yok</h3>
+                    <p className="mt-2 text-sm text-gray-500">Bu işletmeye ait hiç belge bulunmamaktadır.</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </Modal>
+        </div>
+      </main>
 
-      {/* Dekont Yükleme Modalı */}
-      <Modal isOpen={dekontModalOpen} onClose={() => setDekontModalOpen(false)} title={`Dekont Yükle - ${selectedOgrenci?.ad} ${selectedOgrenci?.soyad}`}>
+      {/* Modals */}
+      <Modal isOpen={dekontModalOpen} onClose={() => setDekontModalOpen(false)} title="Yeni Dekont Ekle">
         <div className="space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">Öğrenci Bilgileri</h3>
-            <div className="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dekont Dönemi <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <strong>Öğrenci:</strong> {selectedOgrenci ? `${selectedOgrenci.ad} ${selectedOgrenci.soyad}` : ''}
+                <select
+                  value={dekontFormData.ay}
+                  onChange={(e) => setDekontFormData({...dekontFormData, ay: parseInt(e.target.value)})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Ay Seçiniz</option>
+                  <option value="1">Ocak</option>
+                  <option value="2">Şubat</option>
+                  <option value="3">Mart</option>
+                  <option value="4">Nisan</option>
+                  <option value="5">Mayıs</option>
+                  <option value="6">Haziran</option>
+                  <option value="7">Temmuz</option>
+                  <option value="8">Ağustos</option>
+                  <option value="9">Eylül</option>
+                  <option value="10">Ekim</option>
+                  <option value="11">Kasım</option>
+                  <option value="12">Aralık</option>
+                </select>
               </div>
               <div>
-                <strong>Sınıf:</strong> {selectedOgrenci ? selectedOgrenci.sinif : ''}
-              </div>
-              <div>
-                <strong>Alan:</strong> {selectedOgrenci ? selectedOgrenci.alan : ''}
+                <select
+                  value={dekontFormData.yil}
+                  onChange={(e) => setDekontFormData({...dekontFormData, yil: parseInt(e.target.value)})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Yıl Seçiniz</option>
+                  {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i).map(yil => (
+                    <option key={yil} value={yil}>{yil}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Dekont Tarihi <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={dekontFormData.tarih}
-              onChange={(e) => setDekontFormData({...dekontFormData, tarih: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Dekont Ayı <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={dekontFormData.ay}
-              onChange={(e) => setDekontFormData({...dekontFormData, ay: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            >
-              <option value="">Ay Seçiniz</option>
-              <option value="Ocak">Ocak</option>
-              <option value="Şubat">Şubat</option>
-              <option value="Mart">Mart</option>
-              <option value="Nisan">Nisan</option>
-              <option value="Mayıs">Mayıs</option>
-              <option value="Haziran">Haziran</option>
-              <option value="Temmuz">Temmuz</option>
-              <option value="Ağustos">Ağustos</option>
-              <option value="Eylül">Eylül</option>
-              <option value="Ekim">Ekim</option>
-              <option value="Kasım">Kasım</option>
-              <option value="Aralık">Aralık</option>
-            </select>
           </div>
 
           <div>
@@ -961,13 +845,13 @@ export default function PanelPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tutar (₺)
+              Miktar (₺)
             </label>
             <input
               type="number"
               step="0.01"
-              value={dekontFormData.tutar}
-              onChange={(e) => setDekontFormData({...dekontFormData, tutar: e.target.value})}
+              value={dekontFormData.miktar}
+              onChange={(e) => setDekontFormData({...dekontFormData, miktar: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="0.00 (opsiyonel)"
             />
@@ -1002,7 +886,13 @@ export default function PanelPage() {
               onClick={() => {
                 setDekontModalOpen(false)
                 setSelectedOgrenci(null)
-                setDekontFormData({ tarih: '', ay: '', aciklama: '', tutar: '', dosya: null })
+                setDekontFormData({ 
+                  ay: new Date().getMonth() + 1, 
+                  yil: new Date().getFullYear(), 
+                  aciklama: '', 
+                  miktar: '', 
+                  dosya: null 
+                })
               }}
               className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
@@ -1013,6 +903,94 @@ export default function PanelPage() {
               className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
             >
               Dekont Ekle
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={belgeModalOpen} onClose={() => setBelgeModalOpen(false)} title="Yeni Belge Ekle">
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Belge Adı
+            </label>
+            <input
+              type="text"
+              value={belgeFormData.ad}
+              onChange={(e) => setBelgeFormData({...belgeFormData, ad: e.target.value})}
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Belge adını giriniz"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Belge Türü
+            </label>
+            <select
+              value={belgeFormData.tur}
+              onChange={(e) => setBelgeFormData({...belgeFormData, tur: e.target.value, customTur: ''})}
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="sozlesme">Sözleşme</option>
+              <option value="fesih_belgesi">Fesih Belgesi</option>
+              <option value="usta_ogretici_belgesi">Usta Öğretici Belgesi</option>
+              <option value="other">Diğer (Manuel Giriş)</option>
+            </select>
+          </div>
+
+          {belgeFormData.tur === 'other' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Özel Belge Türü
+              </label>
+              <input
+                type="text"
+                value={belgeFormData.customTur}
+                onChange={(e) => setBelgeFormData({...belgeFormData, customTur: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Belge türünü yazınız"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dosya Seçin <span className="text-red-500">*</span>
+            </label>
+            <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors">
+              <input
+                type="file"
+                id="belge-dosya"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                onChange={(e) => setBelgeFormData({...belgeFormData, dosya: e.target.files?.[0] || null})}
+                className="hidden"
+                required
+              />
+              <label htmlFor="belge-dosya" className="cursor-pointer">
+                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">
+                  {belgeFormData.dosya ? belgeFormData.dosya.name : 'Dosya seçmek için tıklayın'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, DOC, DOCX, JPG, PNG formatları desteklenir
+                </p>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={() => setBelgeModalOpen(false)}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleBelgeEkle}
+              className="px-4 py-2 text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-colors shadow-sm"
+            >
+              Belge Ekle
             </button>
           </div>
         </div>
@@ -1060,11 +1038,11 @@ export default function PanelPage() {
                       <div className="flex items-center justify-between mb-2">
                         <div>
                           <h5 className="font-medium text-gray-900">
-                            {new Date(dekont.tarih).toLocaleDateString('tr-TR', {
+                            {dekont.odeme_tarihi ? new Date(dekont.odeme_tarihi).toLocaleDateString('tr-TR', {
                               day: 'numeric',
-                              month: 'long', 
+                              month: 'long',
                               year: 'numeric'
-                            })}
+                            }) : '-'}
                           </h5>
                           {dekont.ay && (
                             <p className="text-xs text-blue-600 font-medium mt-1">
@@ -1078,7 +1056,7 @@ export default function PanelPage() {
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{dekont.aciklama}</p>
                       <p className="text-lg font-bold text-green-600">
-                        {dekont.tutar ? dekont.tutar.toLocaleString('tr-TR', {
+                        {dekont.miktar ? dekont.miktar.toLocaleString('tr-TR', {
                           style: 'currency',
                           currency: 'TRY'
                         }) : 'Tutar belirtilmemiş'}
@@ -1110,18 +1088,18 @@ export default function PanelPage() {
                 <div>
                   <span className="text-sm font-medium text-gray-700">Tarih:</span>
                   <p className="text-gray-900 mt-1">
-                    {new Date(selectedDekont.tarih).toLocaleDateString('tr-TR', {
+                    {selectedDekont.odeme_tarihi ? new Date(selectedDekont.odeme_tarihi).toLocaleDateString('tr-TR', {
                       weekday: 'long',
                       day: 'numeric',
-                      month: 'long', 
+                      month: 'long',
                       year: 'numeric'
-                    })}
+                    }) : '-'}
                   </p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-700">Tutar:</span>
                   <p className="text-2xl font-bold text-green-600 mt-1">
-                    {selectedDekont.tutar ? selectedDekont.tutar.toLocaleString('tr-TR', {
+                    {selectedDekont.miktar ? selectedDekont.miktar.toLocaleString('tr-TR', {
                       style: 'currency',
                       currency: 'TRY'
                     }) : 'Tutar belirtilmemiş'}
@@ -1203,11 +1181,15 @@ export default function PanelPage() {
         )}
       </Modal>
 
-      <footer className="w-full bg-gray-800 text-white py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center">
-          <div className="flex items-center space-x-2">
-            <div className="font-bold bg-white text-gray-800 w-6 h-6 flex items-center justify-center rounded-md">N</div>
-            <span className="text-sm">© 2025 Hüsniye Özdilek MTAL</span>
+      <footer className="w-full bg-gradient-to-br from-indigo-900 to-indigo-800 text-white py-4 fixed bottom-0 left-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center">
+            <div className="flex items-center space-x-2">
+              <div className="font-bold bg-white text-indigo-900 w-6 h-6 flex items-center justify-center rounded-md">
+                N
+              </div>
+              <span className="text-sm">&copy; {new Date().getFullYear()} {okulAdi}</span>
+            </div>
           </div>
         </div>
       </footer>

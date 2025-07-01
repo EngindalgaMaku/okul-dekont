@@ -8,18 +8,6 @@ interface DekontListProps {
   isLoading?: boolean
 }
 
-const formatDate = (date: string | undefined) => {
-  if (!date) return ''
-  try {
-    const parsedDate = new Date(date)
-    if (isNaN(parsedDate.getTime())) return ''
-    return parsedDate.toLocaleDateString('tr-TR')
-  } catch (error) {
-    console.error('Tarih formatlanırken hata:', error)
-    return ''
-  }
-}
-
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
@@ -84,24 +72,15 @@ export default function DekontList({ dekontlar, onDekontSelect, onDekontDelete, 
         <thead className="bg-gray-50">
           <tr>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Tarih
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Öğrenci
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              İşletme
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Tutar
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Dönem
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Durum
+              Tutar
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               İşlemler
             </th>
           </tr>
@@ -109,42 +88,40 @@ export default function DekontList({ dekontlar, onDekontSelect, onDekontDelete, 
         <tbody className="bg-white divide-y divide-gray-200">
           {dekontlar.map((dekont) => (
             <tr key={dekont.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {formatDate(dekont.odeme_tarihi)}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {dekont.stajlar?.ogrenciler?.ad} {dekont.stajlar?.ogrenciler?.soyad}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {dekont.isletmeler?.ad}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {formatCurrency(dekont.tutar)}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <div className="flex items-center">
+                  <div className="ml-4">
+                    <div className="text-sm font-medium text-gray-900">
+                      {dekont.stajlar?.ogrenciler?.ad} {dekont.stajlar?.ogrenciler?.soyad}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {dekont.isletmeler?.ad}
+                    </div>
+                  </div>
+                </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 {dekont.ay}/{dekont.yil}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getOnayDurumuClass(dekont.onay_durumu)}`}>
-                  {getOnayDurumuText(dekont.onay_durumu)}
-                </span>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {formatCurrency(dekont.tutar)}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <div className="flex items-center space-x-2">
+              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div className="flex items-center justify-end space-x-2">
                   <button
                     onClick={() => onDekontSelect(dekont)}
-                    className="text-indigo-600 hover:text-indigo-900"
+                    className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-1.5 rounded-lg transition-colors"
                     title="Görüntüle"
                   >
-                    <Eye className="h-5 w-5" />
+                    <Eye className="h-4 w-4" />
                   </button>
                   {onDekontDelete && (
                     <button
                       onClick={() => onDekontDelete(dekont)}
-                      className="text-red-600 hover:text-red-900"
+                      className="text-red-600 hover:text-red-900 bg-red-50 p-1.5 rounded-lg transition-colors"
                       title="Sil"
                     >
-                      <Trash2 className="h-5 w-5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>

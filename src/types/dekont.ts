@@ -29,7 +29,6 @@ export interface Dekont {
 
 export interface DekontFormData {
   staj_id: number
-  odeme_tarihi: string
   tutar: number
   dosya?: File
   aciklama?: string
